@@ -1,7 +1,7 @@
 import type { BaseMessageConstructor } from '../../agent/BaseMessage'
 
 import { Expose, Type } from 'class-transformer'
-import { ValidateNested } from 'class-validator'
+import { IsInstance, IsOptional, ValidateNested } from 'class-validator'
 
 import { TransportDecorator, ReturnRouteTypes } from './TransportDecorator'
 
@@ -10,6 +10,8 @@ export function TransportDecorated<T extends BaseMessageConstructor>(Base: T) {
     @Expose({ name: '~transport' })
     @Type(() => TransportDecorator)
     @ValidateNested()
+    @IsOptional()
+    @IsInstance(TransportDecorator)
     public transport?: TransportDecorator
 
     public setReturnRouting(type: ReturnRouteTypes, thread?: string) {
@@ -21,7 +23,9 @@ export function TransportDecorated<T extends BaseMessageConstructor>(Base: T) {
 
     public hasReturnRouting(threadId?: string): boolean {
       //   transport 'none' or undefined always false
-      if (!this.transport || this.transport.returnRoute === ReturnRouteTypes.none) return false
+      if (!this.transport || !this.transport.returnRoute || this.transport.returnRoute === ReturnRouteTypes.none) {
+        return false
+      }
       // transport 'all' always true
       else if (this.transport.returnRoute === ReturnRouteTypes.all) return true
       // transport 'thread' with matching thread id is true

@@ -15,7 +15,7 @@ import { AckStatus } from '../../common'
 import { ConnectionState } from '../../connections'
 import { IndyHolderService } from '../../indy/services/IndyHolderService'
 import { IndyIssuerService } from '../../indy/services/IndyIssuerService'
-import { LedgerService } from '../../ledger/services'
+import { IndyLedgerService } from '../../ledger/services'
 import { CredentialEventTypes } from '../CredentialEvents'
 import { CredentialState } from '../CredentialState'
 import { CredentialUtils } from '../CredentialUtils'
@@ -38,13 +38,13 @@ import { credDef, credOffer, credReq } from './fixtures'
 
 // Mock classes
 jest.mock('../repository/CredentialRepository')
-jest.mock('../../../modules/ledger/services/LedgerService')
+jest.mock('../../../modules/ledger/services/IndyLedgerService')
 jest.mock('../../indy/services/IndyHolderService')
 jest.mock('../../indy/services/IndyIssuerService')
 
 // Mock typed object
 const CredentialRepositoryMock = CredentialRepository as jest.Mock<CredentialRepository>
-const LedgerServiceMock = LedgerService as jest.Mock<LedgerService>
+const IndyLedgerServiceMock = IndyLedgerService as jest.Mock<IndyLedgerService>
 const IndyHolderServiceMock = IndyHolderService as jest.Mock<IndyHolderService>
 const IndyIssuerServiceMock = IndyIssuerService as jest.Mock<IndyIssuerService>
 
@@ -138,7 +138,7 @@ const mockCredentialRecord = ({
 describe('CredentialService', () => {
   let credentialRepository: CredentialRepository
   let credentialService: CredentialService
-  let ledgerService: LedgerService
+  let ledgerService: IndyLedgerService
   let indyIssuerService: IndyIssuerService
   let indyHolderService: IndyHolderService
   let eventEmitter: EventEmitter
@@ -147,7 +147,7 @@ describe('CredentialService', () => {
     credentialRepository = new CredentialRepositoryMock()
     indyIssuerService = new IndyIssuerServiceMock()
     indyHolderService = new IndyHolderServiceMock()
-    ledgerService = new LedgerServiceMock()
+    ledgerService = new IndyLedgerServiceMock()
     eventEmitter = new EventEmitter()
 
     credentialService = new CredentialService(

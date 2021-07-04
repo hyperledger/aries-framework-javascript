@@ -1,7 +1,7 @@
 import type { BaseMessageConstructor } from '../../agent/BaseMessage'
 
 import { Expose, Type } from 'class-transformer'
-import { IsArray, IsOptional, ValidateNested } from 'class-validator'
+import { IsInstance, IsOptional, ValidateNested } from 'class-validator'
 
 import { Attachment } from './Attachment'
 
@@ -13,7 +13,7 @@ export function AttachmentDecorated<T extends BaseMessageConstructor>(Base: T) {
     @Expose({ name: '~attach' })
     @Type(() => Attachment)
     @ValidateNested()
-    @IsArray()
+    @IsInstance(Attachment, { each: true })
     @IsOptional()
     public attachments?: Attachment[]
 

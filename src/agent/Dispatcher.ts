@@ -3,10 +3,12 @@ import type { AgentMessage } from './AgentMessage'
 import type { Handler } from './Handler'
 import type { InboundMessageContext } from './models/InboundMessageContext'
 
-import { Lifecycle, scoped } from 'tsyringe'
+import { inject, Lifecycle, scoped } from 'tsyringe'
 
+import { InjectionSymbols } from '../constants'
 import { ReturnRouteTypes } from '../decorators/transport/TransportDecorator'
 import { AriesFrameworkError } from '../error/AriesFrameworkError'
+import { Logger } from '../logger'
 
 import { MessageSender } from './MessageSender'
 import { TransportService } from './TransportService'
@@ -16,10 +18,16 @@ class Dispatcher {
   private handlers: Handler[] = []
   private messageSender: MessageSender
   private transportService: TransportService
+  private logger: Logger
 
-  public constructor(messageSender: MessageSender, transportService: TransportService) {
+  public constructor(
+    messageSender: MessageSender,
+    transportService: TransportService,
+    @inject(InjectionSymbols.Logger) logger: Logger
+  ) {
     this.messageSender = messageSender
     this.transportService = transportService
+    this.logger = logger
   }
 
   public registerHandler(handler: Handler) {
@@ -27,14 +35,27 @@ class Dispatcher {
   }
 
   public async dispatch(messageContext: InboundMessageContext): Promise<OutboundMessage | OutboundPackage | undefined> {
-    const message = messageContext.message
+    const { message } = messageContext
     const handler = this.getHandlerForType(message.type)
 
     if (!handler) {
       throw new AriesFrameworkError(`No handler for message type "${message.type}" found`)
     }
 
-    const outboundMessage = await handler.handle(messageContext)
+    let outboundMessage: OutboundMessage<AgentMessage> | void
+
+    try {
+      outboundMessage = await handler.handle(messageContext)
+    } catch (error) {
+      this.logger.error(`Error handling message with type ${message.type}`, {
+        message: message.toJSON(),
+        senderVerkey: messageContext.senderVerkey,
+        recipientVerkey: messageContext.recipientVerkey,
+        connectionId: messageContext.connection?.id,
+      })
+
+      throw error
+    }
 
     if (outboundMessage) {
       const threadId = outboundMessage.payload.threadId
@@ -48,7 +69,7 @@ class Dispatcher {
         const keys = {
           recipientKeys: messageContext.senderVerkey ? [messageContext.senderVerkey] : [],
           routingKeys: [],
-          senderKey: messageContext.connection?.verkey || null,
+          senderKey: outboundMessage.connection.verkey,
         }
         return await this.messageSender.packMessage(outboundMessage, keys)
       }

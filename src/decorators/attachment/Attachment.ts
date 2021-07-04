@@ -1,5 +1,15 @@
 import { Expose, Type } from 'class-transformer'
-import { IsBase64, IsDate, IsHash, IsInt, IsMimeType, IsOptional, IsString, ValidateNested } from 'class-validator'
+import {
+  IsBase64,
+  IsDate,
+  IsHash,
+  IsInstance,
+  IsInt,
+  IsMimeType,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator'
 
 import { uuid } from '../../utils/uuid'
 
@@ -130,5 +140,6 @@ export class Attachment {
 
   @Type(() => AttachmentData)
   @ValidateNested()
+  @IsInstance(AttachmentData)
   public data!: AttachmentData
 }

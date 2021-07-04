@@ -1,7 +1,7 @@
 import type { BaseMessageConstructor } from '../../agent/BaseMessage'
 
 import { Expose, Type } from 'class-transformer'
-import { ValidateNested } from 'class-validator'
+import { IsInstance, IsOptional, ValidateNested } from 'class-validator'
 
 import { AckDecorator } from './AckDecorator'
 
@@ -10,6 +10,8 @@ export function AckDecorated<T extends BaseMessageConstructor>(Base: T) {
     @Expose({ name: '~please_ack' })
     @Type(() => AckDecorator)
     @ValidateNested()
+    @IsInstance(AckDecorator)
+    @IsOptional()
     public pleaseAck?: AckDecorator
 
     public setPleaseAck() {

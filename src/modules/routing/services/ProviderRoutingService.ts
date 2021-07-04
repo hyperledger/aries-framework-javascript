@@ -53,11 +53,6 @@ class ProviderRoutingService {
   public forward(messageContext: InboundMessageContext<ForwardMessage>): OutboundMessage<ForwardMessage> {
     const { message, recipientVerkey } = messageContext
 
-    // TODO: update to class-validator validation
-    if (!message.to) {
-      throw new AriesFrameworkError('Invalid Message: Missing required attribute "to"')
-    }
-
     const connection = this.findRecipient(message.to)
 
     if (!connection) {

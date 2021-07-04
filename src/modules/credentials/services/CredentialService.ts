@@ -17,7 +17,7 @@ import { uuid } from '../../../utils/uuid'
 import { AckStatus } from '../../common'
 import { ConnectionService } from '../../connections'
 import { IndyIssuerService, IndyHolderService } from '../../indy'
-import { LedgerService } from '../../ledger/services/LedgerService'
+import { IndyLedgerService } from '../../ledger/services/IndyLedgerService'
 import { CredentialEventTypes } from '../CredentialEvents'
 import { CredentialState } from '../CredentialState'
 import { CredentialUtils } from '../CredentialUtils'
@@ -38,7 +38,7 @@ import { CredentialRecord } from '../repository/CredentialRecord'
 export class CredentialService {
   private credentialRepository: CredentialRepository
   private connectionService: ConnectionService
-  private ledgerService: LedgerService
+  private ledgerService: IndyLedgerService
   private logger: Logger
   private indyIssuerService: IndyIssuerService
   private indyHolderService: IndyHolderService
@@ -47,7 +47,7 @@ export class CredentialService {
   public constructor(
     credentialRepository: CredentialRepository,
     connectionService: ConnectionService,
-    ledgerService: LedgerService,
+    ledgerService: IndyLedgerService,
     agentConfig: AgentConfig,
     indyIssuerService: IndyIssuerService,
     indyHolderService: IndyHolderService,
@@ -146,7 +146,6 @@ export class CredentialService {
     const { message: proposalMessage, connection } = messageContext
 
     // Assert connection
-    connection?.assertReady()
     if (!connection) {
       throw new AriesFrameworkError(
         `No connection associated with incoming credential proposal message with thread id ${proposalMessage.threadId}`
@@ -304,7 +303,6 @@ export class CredentialService {
     const { message: credentialOfferMessage, connection } = messageContext
 
     // Assert connection
-    connection?.assertReady()
     if (!connection) {
       throw new AriesFrameworkError(
         `No connection associated with incoming credential offer message with thread id ${credentialOfferMessage.threadId}`
@@ -430,7 +428,6 @@ export class CredentialService {
     const { message: credentialRequestMessage, connection } = messageContext
 
     // Assert connection
-    connection?.assertReady()
     if (!connection) {
       throw new AriesFrameworkError(
         `No connection associated with incoming credential request message with thread id ${credentialRequestMessage.threadId}`
@@ -552,7 +549,6 @@ export class CredentialService {
     const { message: issueCredentialMessage, connection } = messageContext
 
     // Assert connection
-    connection?.assertReady()
     if (!connection) {
       throw new AriesFrameworkError(
         `No connection associated with incoming presentation message with thread id ${issueCredentialMessage.threadId}`
@@ -636,7 +632,6 @@ export class CredentialService {
     const { message: credentialAckMessage, connection } = messageContext
 
     // Assert connection
-    connection?.assertReady()
     if (!connection) {
       throw new AriesFrameworkError(
         `No connection associated with incoming presentation acknowledgement message with thread id ${credentialAckMessage.threadId}`

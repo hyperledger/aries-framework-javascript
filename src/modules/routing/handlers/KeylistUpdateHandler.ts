@@ -14,11 +14,13 @@ export class KeylistUpdateHandler implements Handler {
   }
 
   public async handle(messageContext: HandlerInboundMessage<KeylistUpdateHandler>) {
-    if (!messageContext.connection) {
-      throw new AriesFrameworkError(`Connection for verkey ${messageContext.recipientVerkey} not found!`)
+    const { message, connection } = messageContext
+
+    if (!connection) {
+      throw new AriesFrameworkError(`No connection associated with incoming message with id ${message.id}`)
     }
 
-    const message = this.routingService.updateRoutes(messageContext)
-    return createOutboundMessage(messageContext.connection, message)
+    const updateMessage = this.routingService.updateRoutes(messageContext)
+    return createOutboundMessage(connection, updateMessage)
   }
 }

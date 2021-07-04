@@ -20,7 +20,8 @@ export class InboundMessageContext<T extends AgentMessage = AgentMessage> {
 
     if (context.connection) {
       this.connection = context.connection
-      // TODO: which senderkey should we prioritize
+
+      // TODO: which sender key should we prioritize
       // Or should we throw an error when they don't match?
       this.senderVerkey = context.connection.theirKey || context.senderVerkey || undefined
     } else if (context.senderVerkey) {

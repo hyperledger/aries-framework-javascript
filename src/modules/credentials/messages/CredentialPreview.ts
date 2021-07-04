@@ -1,9 +1,40 @@
 import { Expose, Type } from 'class-transformer'
-import { Equals, ValidateNested } from 'class-validator'
+import { Equals, IsInstance, IsMimeType, IsOptional, IsString, ValidateNested } from 'class-validator'
 
 import { JsonTransformer } from '../../../utils/JsonTransformer'
 
 import { IssueCredentialMessageType } from './IssueCredentialMessageType'
+
+interface CredentialPreviewAttributeOptions {
+  name: string
+  mimeType?: string
+  value: string
+}
+
+export class CredentialPreviewAttribute {
+  public constructor(options: CredentialPreviewAttributeOptions) {
+    if (options) {
+      this.name = options.name
+      this.mimeType = options.mimeType
+      this.value = options.value
+    }
+  }
+
+  @IsString()
+  public name!: string
+
+  @Expose({ name: 'mime-type' })
+  @IsOptional()
+  @IsMimeType()
+  public mimeType?: string
+
+  @IsString()
+  public value!: string
+
+  public toJSON(): Record<string, unknown> {
+    return JsonTransformer.toJSON(this)
+  }
+}
 
 export interface CredentialPreviewOptions {
   attributes: CredentialPreviewAttribute[]
@@ -30,34 +61,8 @@ export class CredentialPreview {
 
   @Type(() => CredentialPreviewAttribute)
   @ValidateNested({ each: true })
+  @IsInstance(CredentialPreviewAttribute, { each: true })
   public attributes!: CredentialPreviewAttribute[]
-
-  public toJSON(): Record<string, unknown> {
-    return JsonTransformer.toJSON(this)
-  }
-}
-
-interface CredentialPreviewAttributeOptions {
-  name: string
-  mimeType?: string
-  value: string
-}
-
-export class CredentialPreviewAttribute {
-  public constructor(options: CredentialPreviewAttributeOptions) {
-    if (options) {
-      this.name = options.name
-      this.mimeType = options.mimeType
-      this.value = options.value
-    }
-  }
-
-  public name!: string
-
-  @Expose({ name: 'mime-type' })
-  public mimeType?: string
-
-  public value!: string
 
   public toJSON(): Record<string, unknown> {
     return JsonTransformer.toJSON(this)

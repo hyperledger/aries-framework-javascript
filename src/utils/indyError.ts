@@ -68,12 +68,6 @@ export interface IndyError {
   indyName?: string
 }
 
-export function handleIndyError(error: IndyError) {
-  throw new AriesFrameworkError(`${error.name}(${error.indyName}): ${error.message}`, {
-    cause: error,
-  })
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function isIndyError(error: any, errorName?: IndyErrorValues): error is IndyError {
   if (typeof error !== 'object' || error === null) return false

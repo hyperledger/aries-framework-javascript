@@ -14,7 +14,7 @@ import { AgentConfig } from './AgentConfig'
 export interface EnvelopeKeys {
   recipientKeys: Verkey[]
   routingKeys: Verkey[]
-  senderKey: Verkey | null
+  senderKey: Verkey
 }
 
 @scoped(Lifecycle.ContainerScoped)

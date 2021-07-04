@@ -1,5 +1,6 @@
 import type { PresentationPreview } from './messages'
 import type { RequestedCredentials, RetrievedCredentials } from './models'
+import type { ProofRequestOptions } from './models/ProofRequest'
 import type { ProofRecord } from './repository/ProofRecord'
 
 import { Lifecycle, scoped } from 'tsyringe'
@@ -120,7 +121,9 @@ export class ProofsModule {
    */
   public async requestProof(
     connectionId: string,
-    proofRequestOptions: Partial<Pick<ProofRequest, 'name' | 'nonce' | 'requestedAttributes' | 'requestedPredicates'>>,
+    proofRequestOptions: Partial<
+      Pick<ProofRequestOptions, 'name' | 'nonce' | 'requestedAttributes' | 'requestedPredicates'>
+    >,
     config?: {
       comment?: string
     }

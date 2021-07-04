@@ -3,19 +3,17 @@ import type Indy from 'indy-sdk'
 import { inject, Lifecycle, scoped } from 'tsyringe'
 
 import { InjectionSymbols } from '../../../constants'
-import { IndyWallet } from '../../../wallet/IndyWallet'
+import { IndySdkError } from '../../../error'
 
 @scoped(Lifecycle.ContainerScoped)
 export class IndyVerifierService {
   private indy: typeof Indy
-  private indyWallet: IndyWallet
 
-  public constructor(@inject(InjectionSymbols.Indy) indy: typeof Indy, indyWallet: IndyWallet) {
+  public constructor(@inject(InjectionSymbols.Indy) indy: typeof Indy) {
     this.indy = indy
-    this.indyWallet = indyWallet
   }
 
-  public verifyProof({
+  public async verifyProof({
     proofRequest,
     proof,
     schemas,
@@ -23,14 +21,18 @@ export class IndyVerifierService {
     revocationRegistryDefinitions = {},
     revocationStates = {},
   }: VerifyProofOptions): Promise<boolean> {
-    return this.indy.verifierVerifyProof(
-      proofRequest,
-      proof,
-      schemas,
-      credentialDefinitions,
-      revocationRegistryDefinitions,
-      revocationStates
-    )
+    try {
+      return await this.indy.verifierVerifyProof(
+        proofRequest,
+        proof,
+        schemas,
+        credentialDefinitions,
+        revocationRegistryDefinitions,
+        revocationStates
+      )
+    } catch (error) {
+      throw new IndySdkError(error)
+    }
   }
 }
 

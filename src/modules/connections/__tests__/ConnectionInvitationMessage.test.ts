@@ -1,6 +1,5 @@
-import { validateOrReject } from 'class-validator'
-
 import { JsonTransformer } from '../../../utils/JsonTransformer'
+import { MessageValidator } from '../../../utils/MessageValidator'
 import { ConnectionInvitationMessage } from '../messages/ConnectionInvitationMessage'
 
 describe('ConnectionInvitationMessage', () => {
@@ -13,7 +12,7 @@ describe('ConnectionInvitationMessage', () => {
       label: 'test',
     }
     const invitation = JsonTransformer.fromJSON(json, ConnectionInvitationMessage)
-    await expect(validateOrReject(invitation)).resolves.toBeUndefined()
+    await expect(MessageValidator.validate(invitation)).resolves.toBeUndefined()
   })
 
   it('should throw error if both did and inline keys / endpoint are missing', async () => {
@@ -23,7 +22,7 @@ describe('ConnectionInvitationMessage', () => {
       label: 'test',
     }
     const invitation = JsonTransformer.fromJSON(json, ConnectionInvitationMessage)
-    await expect(validateOrReject(invitation)).rejects.not.toBeNull()
+    await expect(MessageValidator.validate(invitation)).rejects.not.toBeNull()
   })
 
   it('should replace legacy did:sov:BzCbsNYhMrjHiqZDTUASHg;spec prefix with https://didcomm.org in message type', async () => {
@@ -40,6 +39,6 @@ describe('ConnectionInvitationMessage', () => {
     expect(invitation.type).toBe('https://didcomm.org/connections/1.0/invitation')
 
     // Assert validation also works with the transformation
-    await expect(validateOrReject(invitation)).resolves.toBeUndefined()
+    await expect(MessageValidator.validate(invitation)).resolves.toBeUndefined()
   })
 })

@@ -1,5 +1,5 @@
 import { Expose, Type } from 'class-transformer'
-import { Equals, IsArray, IsString, ValidateNested, IsOptional } from 'class-validator'
+import { Equals, IsArray, IsString, ValidateNested, IsOptional, IsInstance } from 'class-validator'
 
 import { AgentMessage } from '../../../agent/AgentMessage'
 import { Attachment } from '../../../decorators/attachment/Attachment'
@@ -53,6 +53,7 @@ export class RequestPresentationMessage extends AgentMessage {
   @ValidateNested({
     each: true,
   })
+  @IsInstance(Attachment, { each: true })
   public requestPresentationAttachments!: Attachment[]
 
   public get indyProofRequest(): ProofRequest | null {

@@ -1,5 +1,5 @@
 import { Expose, Type } from 'class-transformer'
-import { ValidateNested } from 'class-validator'
+import { IsInstance, ValidateNested } from 'class-validator'
 
 import { ProofIdentifier } from './ProofIdentifier'
 import { RequestedProof } from './RequestedProof'
@@ -13,10 +13,12 @@ export class PartialProof {
 
   @Type(() => ProofIdentifier)
   @ValidateNested({ each: true })
+  @IsInstance(ProofIdentifier, { each: true })
   public identifiers!: ProofIdentifier[]
 
   @Expose({ name: 'requested_proof' })
   @Type(() => RequestedProof)
   @ValidateNested()
+  @IsInstance(RequestedProof)
   public requestedProof!: RequestedProof
 }

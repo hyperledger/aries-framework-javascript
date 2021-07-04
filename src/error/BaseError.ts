@@ -40,6 +40,7 @@ export class BaseError extends makeError.BaseError {
     super(message)
 
     Object.defineProperty(this, 'cause', {
+      value: cause,
       writable: false,
       enumerable: false,
       configurable: false,

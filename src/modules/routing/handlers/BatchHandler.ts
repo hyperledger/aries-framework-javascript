@@ -15,11 +15,12 @@ export class BatchHandler implements Handler {
   }
 
   public async handle(messageContext: HandlerInboundMessage<BatchHandler>) {
-    if (!messageContext.connection) {
-      throw new AriesFrameworkError(`Connection for verkey ${messageContext.recipientVerkey} not found!`)
+    const { message, connection } = messageContext
+
+    if (!connection) {
+      throw new AriesFrameworkError(`No connection associated with incoming message with id ${message.id}`)
     }
 
-    const { message } = messageContext
     const forwardedMessages = message.messages
 
     forwardedMessages.forEach((message) => {

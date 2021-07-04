@@ -1,7 +1,7 @@
 import type { IndyCredential } from 'indy-sdk'
 
 import { Expose, Type } from 'class-transformer'
-import { IsOptional, ValidateNested } from 'class-validator'
+import { IsInstance, IsOptional, ValidateNested } from 'class-validator'
 
 import { JsonTransformer } from '../../../utils/JsonTransformer'
 
@@ -19,11 +19,13 @@ export class Credential {
   @Expose({ name: 'cred_info' })
   @Type(() => IndyCredentialInfo)
   @ValidateNested()
+  @IsInstance(IndyCredentialInfo)
   public credentialInfo!: IndyCredentialInfo
 
   @IsOptional()
   @Type(() => RevocationInterval)
   @ValidateNested()
+  @IsInstance(RevocationInterval)
   public interval?: RevocationInterval
 
   public toJSON(): IndyCredential {

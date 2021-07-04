@@ -1,5 +1,5 @@
 import { Expose, Type } from 'class-transformer'
-import { IsString, IsOptional, IsArray, ValidateNested } from 'class-validator'
+import { IsString, IsOptional, IsArray, ValidateNested, IsInstance } from 'class-validator'
 
 import { RevocationInterval } from '../../credentials'
 
@@ -26,6 +26,7 @@ export class ProofAttributeInfo {
 
   @Expose({ name: 'non_revoked' })
   @ValidateNested()
+  @IsInstance(RevocationInterval)
   @Type(() => RevocationInterval)
   @IsOptional()
   public nonRevoked?: RevocationInterval
@@ -33,6 +34,6 @@ export class ProofAttributeInfo {
   @ValidateNested({ each: true })
   @Type(() => AttributeFilter)
   @IsOptional()
-  @IsArray()
+  @IsInstance(AttributeFilter, { each: true })
   public restrictions?: AttributeFilter[]
 }

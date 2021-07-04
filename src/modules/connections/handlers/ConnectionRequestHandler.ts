@@ -3,7 +3,6 @@ import type { Handler, HandlerInboundMessage } from '../../../agent/Handler'
 import type { ConnectionService } from '../services/ConnectionService'
 
 import { createOutboundMessage } from '../../../agent/helpers'
-import { AriesFrameworkError } from '../../../error'
 import { ConnectionRequestMessage } from '../messages'
 
 export class ConnectionRequestHandler implements Handler {
@@ -17,15 +16,11 @@ export class ConnectionRequestHandler implements Handler {
   }
 
   public async handle(messageContext: HandlerInboundMessage<ConnectionRequestHandler>) {
-    if (!messageContext.connection) {
-      throw new AriesFrameworkError(`Connection for verkey ${messageContext.recipientVerkey} not found!`)
-    }
+    const connection = await this.connectionService.processRequest(messageContext)
 
-    await this.connectionService.processRequest(messageContext)
-
-    if (messageContext.connection?.autoAcceptConnection ?? this.agentConfig.autoAcceptConnections) {
-      const { message } = await this.connectionService.createResponse(messageContext.connection.id)
-      return createOutboundMessage(messageContext.connection, message)
+    if (connection.autoAcceptConnection ?? this.agentConfig.autoAcceptConnections) {
+      const { message } = await this.connectionService.createResponse(connection.id)
+      return createOutboundMessage(connection, message)
     }
   }
 }

@@ -1,48 +1,20 @@
 import { Expose, Type } from 'class-transformer'
-import { Equals, IsEnum, IsInt, IsString, ValidateIf, ValidateNested } from 'class-validator'
+import {
+  Equals,
+  IsEnum,
+  IsInstance,
+  IsInt,
+  IsMimeType,
+  IsOptional,
+  IsString,
+  ValidateIf,
+  ValidateNested,
+} from 'class-validator'
 
 import { JsonTransformer } from '../../../utils/JsonTransformer'
 import { PredicateType } from '../models/PredicateType'
 
 import { PresentProofMessageType } from './PresentProofMessageType'
-
-export interface PresentationPreviewOptions {
-  attributes?: PresentationPreviewAttribute[]
-  predicates?: PresentationPreviewPredicate[]
-}
-
-/**
- * Presentation preview inner message class.
- *
- * This is not a message but an inner object for other messages in this protocol. It is used to construct a preview of the data for the presentation.
- *
- * @see https://github.com/hyperledger/aries-rfcs/blob/master/features/0037-present-proof/README.md#presentation-preview
- */
-export class PresentationPreview {
-  public constructor(options: PresentationPreviewOptions) {
-    if (options) {
-      this.attributes = options.attributes ?? []
-      this.predicates = options.predicates ?? []
-    }
-  }
-
-  @Expose({ name: '@type' })
-  @Equals(PresentationPreview.type)
-  public readonly type = PresentationPreview.type
-  public static readonly type = PresentProofMessageType.PresentationPreview
-
-  @Type(() => PresentationPreviewAttribute)
-  @ValidateNested({ each: true })
-  public attributes!: PresentationPreviewAttribute[]
-
-  @Type(() => PresentationPreviewPredicate)
-  @ValidateNested({ each: true })
-  public predicates!: PresentationPreviewPredicate[]
-
-  public toJSON(): Record<string, unknown> {
-    return JsonTransformer.toJSON(this)
-  }
-}
 
 export interface PresentationPreviewAttributeOptions {
   name: string
@@ -71,10 +43,16 @@ export class PresentationPreviewAttribute {
   public credentialDefinitionId?: string
 
   @Expose({ name: 'mime-type' })
+  @IsOptional()
+  @IsMimeType()
   public mimeType?: string
 
+  @IsString()
+  @IsOptional()
   public value?: string
 
+  @IsString()
+  @IsOptional()
   public referent?: string
 
   public toJSON(): Record<string, unknown> {
@@ -99,6 +77,7 @@ export class PresentationPreviewPredicate {
     }
   }
 
+  @IsString()
   public name!: string
 
   @Expose({ name: 'cred_def_id' })
@@ -110,6 +89,46 @@ export class PresentationPreviewPredicate {
 
   @IsInt()
   public threshold!: number
+
+  public toJSON(): Record<string, unknown> {
+    return JsonTransformer.toJSON(this)
+  }
+}
+
+export interface PresentationPreviewOptions {
+  attributes?: PresentationPreviewAttribute[]
+  predicates?: PresentationPreviewPredicate[]
+}
+
+/**
+ * Presentation preview inner message class.
+ *
+ * This is not a message but an inner object for other messages in this protocol. It is used to construct a preview of the data for the presentation.
+ *
+ * @see https://github.com/hyperledger/aries-rfcs/blob/master/features/0037-present-proof/README.md#presentation-preview
+ */
+export class PresentationPreview {
+  public constructor(options: PresentationPreviewOptions) {
+    if (options) {
+      this.attributes = options.attributes ?? []
+      this.predicates = options.predicates ?? []
+    }
+  }
+
+  @Expose({ name: '@type' })
+  @Equals(PresentationPreview.type)
+  public readonly type = PresentationPreview.type
+  public static readonly type = PresentProofMessageType.PresentationPreview
+
+  @Type(() => PresentationPreviewAttribute)
+  @ValidateNested({ each: true })
+  @IsInstance(PresentationPreviewAttribute, { each: true })
+  public attributes!: PresentationPreviewAttribute[]
+
+  @Type(() => PresentationPreviewPredicate)
+  @ValidateNested({ each: true })
+  @IsInstance(PresentationPreviewPredicate, { each: true })
+  public predicates!: PresentationPreviewPredicate[]
 
   public toJSON(): Record<string, unknown> {
     return JsonTransformer.toJSON(this)

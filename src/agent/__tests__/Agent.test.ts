@@ -6,7 +6,7 @@ import { ConnectionRepository, ConnectionService, TrustPingService } from '../..
 import { ConnectionsModule } from '../../modules/connections/ConnectionsModule'
 import { CredentialRepository, CredentialService } from '../../modules/credentials'
 import { CredentialsModule } from '../../modules/credentials/CredentialsModule'
-import { LedgerService } from '../../modules/ledger'
+import { IndyLedgerService } from '../../modules/ledger'
 import { LedgerModule } from '../../modules/ledger/LedgerModule'
 import { ProofRepository, ProofService } from '../../modules/proofs'
 import { ProofsModule } from '../../modules/proofs/ProofsModule'
@@ -71,7 +71,7 @@ describe('Agent', () => {
       expect(container.resolve(ProvisioningService)).toBeInstanceOf(ProvisioningService)
 
       expect(container.resolve(LedgerModule)).toBeInstanceOf(LedgerModule)
-      expect(container.resolve(LedgerService)).toBeInstanceOf(LedgerService)
+      expect(container.resolve(IndyLedgerService)).toBeInstanceOf(IndyLedgerService)
 
       // Symbols, interface based
       expect(container.resolve(InjectionSymbols.Wallet)).toBeInstanceOf(IndyWallet)
@@ -116,7 +116,7 @@ describe('Agent', () => {
       expect(container.resolve(ProvisioningService)).toBe(container.resolve(ProvisioningService))
 
       expect(container.resolve(LedgerModule)).toBe(container.resolve(LedgerModule))
-      expect(container.resolve(LedgerService)).toBe(container.resolve(LedgerService))
+      expect(container.resolve(IndyLedgerService)).toBe(container.resolve(IndyLedgerService))
 
       // Symbols, interface based
       expect(container.resolve(InjectionSymbols.Wallet)).toBe(container.resolve(InjectionSymbols.Wallet))

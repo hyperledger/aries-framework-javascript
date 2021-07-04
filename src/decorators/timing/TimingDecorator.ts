@@ -1,5 +1,5 @@
 import { Expose, Type } from 'class-transformer'
-import { IsDate, IsNumber } from 'class-validator'
+import { IsDate, IsNumber, IsOptional } from 'class-validator'
 
 /**
  * Represents `~timing` decorator
@@ -22,6 +22,7 @@ export class TimingDecorator {
   @Expose({ name: 'in_time' })
   @Type(() => Date)
   @IsDate()
+  @IsOptional()
   public inTime?: Date
 
   /**
@@ -30,6 +31,7 @@ export class TimingDecorator {
   @Expose({ name: 'out_time' })
   @Type(() => Date)
   @IsDate()
+  @IsOptional()
   public outTime?: Date
 
   /**
@@ -39,6 +41,7 @@ export class TimingDecorator {
   @Expose({ name: 'stale_time' })
   @Type(() => Date)
   @IsDate()
+  @IsOptional()
   public staleTime?: Date
 
   /**
@@ -51,6 +54,7 @@ export class TimingDecorator {
   @Expose({ name: 'expires_time' })
   @Type(() => Date)
   @IsDate()
+  @IsOptional()
   public expiresTime?: Date
 
   /**
@@ -59,6 +63,7 @@ export class TimingDecorator {
    */
   @Expose({ name: 'delay_milli' })
   @IsNumber()
+  @IsOptional()
   public delayMilli?: number
 
   /**
@@ -67,5 +72,6 @@ export class TimingDecorator {
   @Expose({ name: 'wait_until_time' })
   @Type(() => Date)
   @IsDate()
+  @IsOptional()
   public waitUntilTime?: Date
 }

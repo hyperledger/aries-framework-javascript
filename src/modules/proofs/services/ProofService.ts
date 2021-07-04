@@ -6,7 +6,6 @@ import type { ProofStateChangedEvent } from '../ProofEvents'
 import type { PresentationPreview, PresentationPreviewAttribute } from '../messages'
 import type { IndyProof, Schema, CredDef } from 'indy-sdk'
 
-import { validateOrReject } from 'class-validator'
 import { inject, scoped, Lifecycle } from 'tsyringe'
 
 import { AgentConfig } from '../../../agent/AgentConfig'
@@ -16,12 +15,13 @@ import { Attachment, AttachmentData } from '../../../decorators/attachment/Attac
 import { AriesFrameworkError } from '../../../error'
 import { JsonEncoder } from '../../../utils/JsonEncoder'
 import { JsonTransformer } from '../../../utils/JsonTransformer'
+import { MessageValidator } from '../../../utils/MessageValidator'
 import { uuid } from '../../../utils/uuid'
 import { Wallet } from '../../../wallet/Wallet'
 import { AckStatus } from '../../common'
 import { CredentialUtils, Credential } from '../../credentials'
 import { IndyHolderService, IndyVerifierService } from '../../indy'
-import { LedgerService } from '../../ledger/services/LedgerService'
+import { IndyLedgerService } from '../../ledger/services/IndyLedgerService'
 import { ProofEventTypes } from '../ProofEvents'
 import { ProofState } from '../ProofState'
 import {
@@ -54,7 +54,7 @@ import { ProofRecord } from '../repository/ProofRecord'
 @scoped(Lifecycle.ContainerScoped)
 export class ProofService {
   private proofRepository: ProofRepository
-  private ledgerService: LedgerService
+  private ledgerService: IndyLedgerService
   private wallet: Wallet
   private logger: Logger
   private indyHolderService: IndyHolderService
@@ -63,7 +63,7 @@ export class ProofService {
 
   public constructor(
     proofRepository: ProofRepository,
-    ledgerService: LedgerService,
+    ledgerService: IndyLedgerService,
     @inject(InjectionSymbols.Wallet) wallet: Wallet,
     agentConfig: AgentConfig,
     indyHolderService: IndyHolderService,
@@ -172,7 +172,6 @@ export class ProofService {
     const { message: proposalMessage, connection } = messageContext
 
     // Assert connection
-    connection?.assertReady()
     if (!connection) {
       throw new AriesFrameworkError(
         `No connection associated with incoming presentation proposal message with thread id ${proposalMessage.threadId}`
@@ -320,7 +319,6 @@ export class ProofService {
     const { message: proofRequestMessage, connection } = messageContext
 
     // Assert connection
-    connection?.assertReady()
     if (!connection) {
       throw new AriesFrameworkError(
         `No connection associated with incoming presentation request message with thread id ${proofRequestMessage.threadId}`
@@ -335,7 +333,7 @@ export class ProofService {
         `Missing required base64 encoded attachment data for presentation request with thread id ${proofRequestMessage.threadId}`
       )
     }
-    await validateOrReject(proofRequest)
+    await MessageValidator.validate(proofRequest)
 
     this.logger.debug('received proof request', proofRequest)
 
@@ -433,7 +431,6 @@ export class ProofService {
     const { message: presentationMessage, connection } = messageContext
 
     // Assert connection
-    connection?.assertReady()
     if (!connection) {
       throw new AriesFrameworkError(
         `No connection associated with incoming presentation message with thread id ${presentationMessage.threadId}`
@@ -504,7 +501,6 @@ export class ProofService {
     const { message: presentationAckMessage, connection } = messageContext
 
     // Assert connection
-    connection?.assertReady()
     if (!connection) {
       throw new AriesFrameworkError(
         `No connection associated with incoming presentation acknowledgement message with thread id ${presentationAckMessage.threadId}`
@@ -588,7 +584,7 @@ export class ProofService {
         ],
       })
 
-      proofRequest.requestedAttributes[referent] = requestedAttribute
+      proofRequest.requestedAttributes.set(referent, requestedAttribute)
     }
 
     this.logger.debug('proposal predicates', presentationProposal.predicates)
@@ -605,7 +601,7 @@ export class ProofService {
         ],
       })
 
-      proofRequest.requestedPredicates[uuid()] = requestedPredicate
+      proofRequest.requestedPredicates.set(uuid(), requestedPredicate)
     }
 
     return proofRequest
@@ -627,7 +623,7 @@ export class ProofService {
   ): Promise<RetrievedCredentials> {
     const retrievedCredentials = new RetrievedCredentials({})
 
-    for (const [referent, requestedAttribute] of Object.entries(proofRequest.requestedAttributes)) {
+    for (const [referent, requestedAttribute] of proofRequest.requestedAttributes) {
       let credentialMatch: Credential[] = []
       const credentials = await this.getCredentialsForProofRequest(proofRequest, referent)
 
@@ -665,7 +661,7 @@ export class ProofService {
       })
     }
 
-    for (const [referent] of Object.entries(proofRequest.requestedPredicates)) {
+    for (const referent of proofRequest.requestedPredicates.keys()) {
       const credentials = await this.getCredentialsForProofRequest(proofRequest, referent)
 
       retrievedCredentials.requestedPredicates[referent] = credentials.map((credential) => {
@@ -698,7 +694,7 @@ export class ProofService {
       if (attributeArray.length === 0) {
         throw new AriesFrameworkError('Unable to automatically select requested attributes.')
       } else {
-        requestedCredentials.requestedAttributes[attributeName] = attributeArray[0]
+        requestedCredentials.requestedAttributes.set(attributeName, attributeArray[0])
       }
     })
 
@@ -706,8 +702,10 @@ export class ProofService {
       if (retrievedCredentials.requestedPredicates[attributeName].length === 0) {
         throw new AriesFrameworkError('Unable to automatically select requested predicates.')
       } else {
-        requestedCredentials.requestedPredicates[attributeName] =
+        requestedCredentials.requestedPredicates.set(
+          attributeName,
           retrievedCredentials.requestedPredicates[attributeName][0]
+        )
       }
     })
 
@@ -810,8 +808,8 @@ export class ProofService {
     requestedCredentials: RequestedCredentials
   ): Promise<IndyProof> {
     const credentialObjects = [
-      ...Object.values(requestedCredentials.requestedAttributes),
-      ...Object.values(requestedCredentials.requestedPredicates),
+      ...requestedCredentials.requestedAttributes.values(),
+      ...requestedCredentials.requestedPredicates.values(),
     ].map((c) => c.credentialInfo)
 
     const schemas = await this.getSchemas(new Set(credentialObjects.map((c) => c.schemaId)))

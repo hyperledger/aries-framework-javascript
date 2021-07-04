@@ -13,10 +13,12 @@ export class BatchPickupHandler implements Handler {
   }
 
   public async handle(messageContext: HandlerInboundMessage<BatchPickupHandler>) {
-    if (!messageContext.connection) {
-      throw new AriesFrameworkError(`Connection for verkey ${messageContext.recipientVerkey} not found!`)
+    const { message, connection } = messageContext
+
+    if (!connection) {
+      throw new AriesFrameworkError(`No connection associated with incoming message with id ${message.id}`)
     }
 
-    return this.messagePickupService.batch(messageContext.connection)
+    return this.messagePickupService.batch(connection)
   }
 }

@@ -1,4 +1,5 @@
 import type { Logger } from '../logger'
+import type { ConnectionRecord } from '../modules/connections'
 import type { UnpackedMessageContext, UnpackedMessage } from '../types'
 import type { AgentMessage } from './AgentMessage'
 import type { TransportSession } from './TransportService'
@@ -9,6 +10,7 @@ import { AriesFrameworkError } from '../error'
 import { ConnectionService } from '../modules/connections'
 import { RoutingMessageType as MessageType } from '../modules/routing'
 import { JsonTransformer } from '../utils/JsonTransformer'
+import { MessageValidator } from '../utils/MessageValidator'
 import { replaceLegacyDidSovPrefixOnMessage } from '../utils/messageType'
 
 import { AgentConfig } from './AgentConfig'
@@ -56,20 +58,18 @@ export class MessageReceiver {
 
     const unpackedMessage = await this.unpackMessage(inboundPackedMessage as Record<string, unknown>)
 
-    const senderKey = unpackedMessage.sender_verkey
-    let connection = undefined
-    if (senderKey && unpackedMessage.recipient_verkey) {
-      // TODO: only attach if theirKey is present. Otherwise a connection that may not be complete, validated or correct will
-      // be attached to the message context. See #76
-      connection = (await this.connectionService.findByVerkey(unpackedMessage.recipient_verkey)) || undefined
+    const theirKey = unpackedMessage.sender_verkey
+    const ourKey = unpackedMessage.recipient_verkey
+    let connection: ConnectionRecord | null = null
 
-      // We check whether the sender key is the same as the key we have stored in the connection
-      // otherwise everyone could send messages to our key and we would just accept
-      // it as if it was send by the key of the connection.
-      if (connection && connection.theirKey != null && connection.theirKey != senderKey) {
-        throw new AriesFrameworkError(
-          `Inbound message 'sender_key' ${senderKey} is different from connection.theirKey ${connection.theirKey}`
-        )
+    if (theirKey) {
+      // Only fetch connection if theirKey is present (AuthCrypt)
+      const retrievedConnection = await this.connectionService.findByTheirKey(theirKey)
+
+      // Only attach a connection if connection is ready and recipient key (ourKey)
+      // matches the verkey of the connection record.
+      if (retrievedConnection?.isReady && retrievedConnection.verkey === ourKey) {
+        connection = retrievedConnection
       }
     }
 
@@ -80,10 +80,21 @@ export class MessageReceiver {
     this.logger.info(`Received message with type '${unpackedMessage.message['@type']}'`, unpackedMessage.message)
 
     const message = await this.transformMessage(unpackedMessage)
+    try {
+      await MessageValidator.validate(message)
+    } catch (error) {
+      this.logger.error(`Error validating message ${message.type}`, {
+        errors: error,
+        message: message.toJSON(),
+      })
+
+      throw error
+    }
+
     const messageContext = new InboundMessageContext(message, {
-      connection,
-      senderVerkey: senderKey,
-      recipientVerkey: unpackedMessage.recipient_verkey,
+      connection: connection ?? undefined,
+      senderVerkey: theirKey,
+      recipientVerkey: ourKey,
     })
 
     return await this.dispatcher.dispatch(messageContext)
@@ -154,7 +165,7 @@ export class MessageReceiver {
     const MessageClass = this.dispatcher.getMessageClassForType(messageType)
 
     if (!MessageClass) {
-      throw new AriesFrameworkError(`No handler for message type "${messageType}" found`)
+      throw new AriesFrameworkError(`No message class found for message type "${messageType}"`)
     }
 
     // Cast the plain JSON object to specific instance of Message extended from AgentMessage

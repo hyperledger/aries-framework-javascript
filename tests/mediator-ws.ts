@@ -1,11 +1,11 @@
-import type { InboundTransporter } from '../src'
+import type { InboundTransporter, Logger } from '../src'
 
 import cors from 'cors'
 import express from 'express'
 import { v4 as uuid } from 'uuid'
 import WebSocket from 'ws'
 
-import { Agent, WebSocketTransportSession, WsOutboundTransporter } from '../src'
+import { InjectionSymbols, Agent, WebSocketTransportSession, WsOutboundTransporter } from '../src'
 import testLogger from '../src/__tests__/logger'
 import { InMemoryMessageRepository } from '../src/storage/InMemoryMessageRepository'
 import { DidCommMimeType } from '../src/types'
@@ -42,12 +42,21 @@ class WsInboundTransporter implements InboundTransporter {
   private listenOnWebSocketMessages(agent: Agent, socket: WebSocket) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     socket.addEventListener('message', async (event: any) => {
-      logger.debug('WebSocket message event received.', { url: event.target.url, data: event.data })
-      // @ts-expect-error Property 'dispatchEvent' is missing in type WebSocket imported from 'ws' module but required in type 'WebSocket'.
-      const session = new WebSocketTransportSession(socket)
-      const outboundMessage = await agent.receiveMessage(JSON.parse(event.data), session)
-      if (outboundMessage) {
-        socket.send(JSON.stringify(outboundMessage.payload))
+      try {
+        logger.debug('WebSocket message event received.', { url: event.target.url, data: event.data })
+        // @ts-expect-error Property 'dispatchEvent' is missing in type WebSocket imported from 'ws' module but required in type 'WebSocket'.
+        const session = new WebSocketTransportSession(socket)
+        const outboundMessage = await agent.receiveMessage(JSON.parse(event.data), session)
+
+        if (outboundMessage) {
+          socket.send(JSON.stringify(outboundMessage.payload))
+        }
+      } catch (error) {
+        const logger = agent.injectionContainer.resolve<Logger>(InjectionSymbols.Logger)
+        logger.error('Error processing incoming message over WebSocket', {
+          cause: error.message,
+          message: event.data,
+        })
       }
     })
   }

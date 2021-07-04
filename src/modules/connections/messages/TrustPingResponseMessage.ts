@@ -1,6 +1,6 @@
 import type { TimingDecorator } from '../../../decorators/timing/TimingDecorator'
 
-import { Equals, IsString } from 'class-validator'
+import { Equals, IsOptional, IsString } from 'class-validator'
 
 import { AgentMessage } from '../../../agent/AgentMessage'
 
@@ -49,5 +49,6 @@ export class TrustPingResponseMessage extends AgentMessage {
   public readonly type = TrustPingResponseMessage.type
 
   @IsString()
+  @IsOptional()
   public comment?: string
 }

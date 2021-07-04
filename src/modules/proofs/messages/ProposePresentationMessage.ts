@@ -1,5 +1,5 @@
 import { Expose, Type } from 'class-transformer'
-import { Equals, IsOptional, IsString, ValidateNested } from 'class-validator'
+import { Equals, IsInstance, IsOptional, IsString, ValidateNested } from 'class-validator'
 
 import { AgentMessage } from '../../../agent/AgentMessage'
 
@@ -45,5 +45,6 @@ export class ProposePresentationMessage extends AgentMessage {
   @Expose({ name: 'presentation_proposal' })
   @Type(() => PresentationPreview)
   @ValidateNested()
+  @IsInstance(PresentationPreview)
   public presentationProposal!: PresentationPreview
 }

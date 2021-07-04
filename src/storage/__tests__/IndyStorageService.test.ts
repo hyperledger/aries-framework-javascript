@@ -1,4 +1,5 @@
 import type { TagsBase } from '../BaseRecord'
+import type Indy from 'indy-sdk'
 
 import { getBaseConfig } from '../../__tests__/helpers'
 import { AgentConfig } from '../../agent/AgentConfig'
@@ -10,12 +11,15 @@ import { TestRecord } from './TestRecord'
 
 describe('IndyStorageService', () => {
   let wallet: IndyWallet
+  let indy: typeof Indy
   let storageService: IndyStorageService<TestRecord>
 
   beforeEach(async () => {
-    wallet = new IndyWallet(new AgentConfig(getBaseConfig('IndyStorageServiceTest')))
+    const config = getBaseConfig('IndyStorageServiceTest')
+    indy = config.indy
+    wallet = new IndyWallet(new AgentConfig(config))
     await wallet.init()
-    storageService = new IndyStorageService<TestRecord>(wallet)
+    storageService = new IndyStorageService<TestRecord>(wallet, indy)
   })
 
   afterEach(async () => {
@@ -45,7 +49,7 @@ describe('IndyStorageService', () => {
         },
       })
 
-      const got = await wallet.getWalletRecord(record.type, record.id, {
+      const got = await indy.getWalletRecord(wallet.walletHandle, record.type, record.id, {
         retrieveType: true,
         retrieveTags: true,
       })
@@ -58,7 +62,7 @@ describe('IndyStorageService', () => {
     })
 
     it('should correctly transform tag values from string after retrieving', async () => {
-      await wallet.addWalletRecord(TestRecord.type, 'some-id', '{}', {
+      await indy.addWalletRecord(wallet.walletHandle, TestRecord.type, 'some-id', '{}', {
         someBoolean: '1',
         someOtherBoolean: '0',
         someStringValue: 'string',

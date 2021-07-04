@@ -6,7 +6,7 @@ import { Matches } from 'class-validator'
 import { uuid } from '../utils/uuid'
 
 export const MessageIdRegExp = /[-_./a-zA-Z0-9]{8,64}/
-export const MessageTypeRegExp = /(.*?)([a-z0-9._-]+)\/(\d[^/]*)\/([a-z0-9._-]+)$/
+export const MessageTypeRegExp = /(.*?)([a-zA-Z0-9._-]+)\/(\d[^/]*)\/([a-zA-Z0-9._-]+)$/
 
 export type BaseMessageConstructor = Constructor<BaseMessage>
 

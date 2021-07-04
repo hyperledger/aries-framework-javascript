@@ -1,5 +1,5 @@
 import { Expose, Type } from 'class-transformer'
-import { IsString, ValidateNested } from 'class-validator'
+import { IsInstance, IsString, ValidateNested } from 'class-validator'
 
 import { ProofAttribute } from './ProofAttribute'
 
@@ -14,6 +14,7 @@ export class RequestedProof {
   @Expose({ name: 'revealed_attrs' })
   @ValidateNested({ each: true })
   @Type(() => ProofAttribute)
+  @IsInstance(ProofAttribute, { each: true })
   public revealedAttributes!: Map<string, ProofAttribute>
 
   @Expose({ name: 'self_attested_attrs' })

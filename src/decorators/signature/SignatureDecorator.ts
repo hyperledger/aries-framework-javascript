@@ -1,5 +1,5 @@
 import { Expose } from 'class-transformer'
-import { Matches } from 'class-validator'
+import { IsString, Matches } from 'class-validator'
 
 import { MessageTypeRegExp } from '../../agent/BaseMessage'
 
@@ -22,11 +22,14 @@ export class SignatureDecorator {
   public signatureType!: string
 
   @Expose({ name: 'sig_data' })
+  @IsString()
   public signatureData!: string
 
   @Expose({ name: 'signer' })
+  @IsString()
   public signer!: string
 
   @Expose({ name: 'signature' })
+  @IsString()
   public signature!: string
 }
