@@ -1,4 +1,5 @@
 import type { AgentMessage } from './AgentMessage'
+import type { AgentMessageProcessedEvent } from './Events'
 import type { Handler } from './Handler'
 import type { InboundMessageContext } from './models/InboundMessageContext'
 
@@ -6,18 +7,19 @@ import { Lifecycle, scoped } from 'tsyringe'
 
 import { AriesFrameworkError } from '../error/AriesFrameworkError'
 
+import { EventEmitter } from './EventEmitter'
+import { AgentEventTypes } from './Events'
 import { MessageSender } from './MessageSender'
-import { TransportService } from './TransportService'
 
 @scoped(Lifecycle.ContainerScoped)
 class Dispatcher {
   private handlers: Handler[] = []
   private messageSender: MessageSender
-  private transportService: TransportService
+  private eventEmitter: EventEmitter
 
-  public constructor(messageSender: MessageSender, transportService: TransportService) {
+  public constructor(messageSender: MessageSender, eventEmitter: EventEmitter) {
     this.messageSender = messageSender
-    this.transportService = transportService
+    this.eventEmitter = eventEmitter
   }
 
   public registerHandler(handler: Handler) {
@@ -33,6 +35,15 @@ class Dispatcher {
     }
 
     const outboundMessage = await handler.handle(messageContext)
+
+    // Emit event that allows to hook into received messages
+    this.eventEmitter.emit<AgentMessageProcessedEvent>({
+      type: AgentEventTypes.AgentMessageProcessed,
+      payload: {
+        message: messageContext.message,
+        connection: messageContext.connection,
+      },
+    })
 
     if (outboundMessage) {
       await this.messageSender.sendMessage(outboundMessage)
@@ -53,6 +64,12 @@ class Dispatcher {
         if (MessageClass.type === messageType) return MessageClass
       }
     }
+  }
+
+  public get supportedMessageTypes() {
+    return this.handlers
+      .reduce<typeof AgentMessage[]>((all, cur) => [...all, ...cur.supportedMessages], [])
+      .map((m) => m.type)
   }
 }
 
