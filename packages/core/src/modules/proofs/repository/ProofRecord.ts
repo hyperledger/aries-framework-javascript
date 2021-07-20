@@ -15,7 +15,7 @@ export interface ProofRecordProps {
 
   isVerified?: boolean
   state: ProofState
-  connectionId: string
+  connectionId?: string
   threadId: string
   presentationId?: string
   tags?: CustomProofTags
@@ -30,12 +30,12 @@ export interface ProofRecordProps {
 export type CustomProofTags = TagsBase
 export type DefaultProofTags = {
   threadId: string
-  connectionId: string
+  connectionId?: string
   state: ProofState
 }
 
 export class ProofRecord extends BaseRecord<DefaultProofTags, CustomProofTags> {
-  public connectionId!: string
+  public connectionId?: string
   public threadId!: string
   public isVerified?: boolean
   public presentationId?: string
@@ -94,7 +94,11 @@ export class ProofRecord extends BaseRecord<DefaultProofTags, CustomProofTags> {
   }
 
   public assertConnection(currentConnectionId: string) {
-    if (this.connectionId !== currentConnectionId) {
+    if (!this.connectionId) {
+      throw new AriesFrameworkError(
+        `Proof record is not associated with any connection. This is often the case with connection-less presentation exchange`
+      )
+    } else if (this.connectionId !== currentConnectionId) {
       throw new AriesFrameworkError(
         `Proof record is associated with connection '${this.connectionId}'. Current connection is '${currentConnectionId}'`
       )

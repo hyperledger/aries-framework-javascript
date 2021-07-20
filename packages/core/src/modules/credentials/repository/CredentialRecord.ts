@@ -27,7 +27,7 @@ export interface CredentialRecordProps {
   id?: string
   createdAt?: Date
   state: CredentialState
-  connectionId: string
+  connectionId?: string
   threadId: string
 
   credentialId?: string
@@ -45,13 +45,13 @@ export interface CredentialRecordProps {
 export type CustomCredentialTags = TagsBase
 export type DefaultCredentialTags = {
   threadId: string
-  connectionId: string
+  connectionId?: string
   state: CredentialState
   credentialId?: string
 }
 
 export class CredentialRecord extends BaseRecord<DefaultCredentialTags, CustomCredentialTags> {
-  public connectionId!: string
+  public connectionId?: string
   public threadId!: string
   public credentialId?: string
   public state!: CredentialState
@@ -144,7 +144,11 @@ export class CredentialRecord extends BaseRecord<DefaultCredentialTags, CustomCr
   }
 
   public assertConnection(currentConnectionId: string) {
-    if (this.connectionId !== currentConnectionId) {
+    if (!this.connectionId) {
+      throw new AriesFrameworkError(
+        `Credential record is not associated with any connection. This is often the case with connection-less credential exchange`
+      )
+    } else if (this.connectionId !== currentConnectionId) {
       throw new AriesFrameworkError(
         `Credential record is associated with connection '${this.connectionId}'. Current connection is '${currentConnectionId}'`
       )

@@ -152,7 +152,10 @@ describe('CredentialService', () => {
 
     credentialService = new CredentialService(
       credentialRepository,
-      { getById: () => Promise.resolve(connection) } as unknown as ConnectionService,
+      {
+        getById: () => Promise.resolve(connection),
+        assertConnectionOrServiceDecorator: () => true,
+      } as unknown as ConnectionService,
       ledgerService,
       agentConfig,
       indyIssuerService,
@@ -179,7 +182,7 @@ describe('CredentialService', () => {
       const repositorySaveSpy = jest.spyOn(credentialRepository, 'save')
 
       // when
-      const { message: credentialOffer } = await credentialService.createOffer(connection, credentialTemplate)
+      const { message: credentialOffer } = await credentialService.createOffer(credentialTemplate, connection)
 
       // then
       expect(repositorySaveSpy).toHaveBeenCalledTimes(1)
@@ -199,7 +202,7 @@ describe('CredentialService', () => {
       const eventListenerMock = jest.fn()
       eventEmitter.on<CredentialStateChangedEvent>(CredentialEventTypes.CredentialStateChanged, eventListenerMock)
 
-      await credentialService.createOffer(connection, credentialTemplate)
+      await credentialService.createOffer(credentialTemplate, connection)
 
       expect(eventListenerMock).toHaveBeenCalledWith({
         type: 'CredentialStateChanged',
@@ -213,7 +216,7 @@ describe('CredentialService', () => {
     })
 
     test('returns credential offer message', async () => {
-      const { message: credentialOffer } = await credentialService.createOffer(connection, credentialTemplate)
+      const { message: credentialOffer } = await credentialService.createOffer(credentialTemplate, connection)
 
       expect(credentialOffer.toJSON()).toMatchObject({
         '@id': expect.any(String),
@@ -320,7 +323,9 @@ describe('CredentialService', () => {
       const repositoryUpdateSpy = jest.spyOn(credentialRepository, 'update')
 
       // when
-      await credentialService.createRequest(credentialRecord)
+      await credentialService.createRequest(credentialRecord, {
+        holderDid: connection.did,
+      })
 
       // then
       expect(repositoryUpdateSpy).toHaveBeenCalledTimes(1)
@@ -336,7 +341,9 @@ describe('CredentialService', () => {
       eventEmitter.on<CredentialStateChangedEvent>(CredentialEventTypes.CredentialStateChanged, eventListenerMock)
 
       // when
-      await credentialService.createRequest(credentialRecord)
+      await credentialService.createRequest(credentialRecord, {
+        holderDid: connection.did,
+      })
 
       // then
       expect(eventListenerMock).toHaveBeenCalledWith({
@@ -357,6 +364,7 @@ describe('CredentialService', () => {
       // when
       const { message: credentialRequest } = await credentialService.createRequest(credentialRecord, {
         comment,
+        holderDid: connection.did,
       })
 
       // then
@@ -384,9 +392,9 @@ describe('CredentialService', () => {
     test(`throws an error when state transition is invalid`, async () => {
       await Promise.all(
         invalidCredentialStates.map(async (state) => {
-          await expect(credentialService.createRequest(mockCredentialRecord({ state }))).rejects.toThrowError(
-            `Credential record is in invalid state ${state}. Valid states are: ${validState}.`
-          )
+          await expect(
+            credentialService.createRequest(mockCredentialRecord({ state }), { holderDid: connection.id })
+          ).rejects.toThrowError(`Credential record is in invalid state ${state}. Valid states are: ${validState}.`)
         })
       )
     })
@@ -919,7 +927,7 @@ describe('CredentialService', () => {
     it('getById should return value from credentialRepository.getSingleByQuery', async () => {
       const expected = mockCredentialRecord()
       mockFunction(credentialRepository.getSingleByQuery).mockReturnValue(Promise.resolve(expected))
-      const result = await credentialService.getByConnectionAndThreadId('connectionId', 'threadId')
+      const result = await credentialService.getByThreadAndConnectionId('threadId', 'connectionId')
       expect(credentialRepository.getSingleByQuery).toBeCalledWith({
         threadId: 'threadId',
         connectionId: 'connectionId',

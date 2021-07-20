@@ -2,6 +2,7 @@ import type { Wallet } from '../../../wallet/Wallet'
 import type { Did } from 'indy-sdk'
 
 import { getAgentConfig, getMockConnection, mockFunction } from '../../../../tests/helpers'
+import { AgentMessage } from '../../../agent/AgentMessage'
 import { EventEmitter } from '../../../agent/EventEmitter'
 import { InboundMessageContext } from '../../../agent/models/InboundMessageContext'
 import { SignatureDecorator } from '../../../decorators/signature/SignatureDecorator'
@@ -22,7 +23,6 @@ import { ConnectionRepository } from '../repository/ConnectionRepository'
 import { ConnectionService } from '../services/ConnectionService'
 
 jest.mock('../repository/ConnectionRepository')
-
 const ConnectionRepositoryMock = ConnectionRepository as jest.Mock<ConnectionRepository>
 
 describe('ConnectionService', () => {
@@ -707,6 +707,175 @@ describe('ConnectionService', () => {
       const updatedConnection = await connectionService.processAck(messageContext)
 
       expect(updatedConnection.state).toBe(ConnectionState.Responded)
+    })
+  })
+
+  describe('assertConnectionOrServiceDecorator', () => {
+    it('should not throw an error when a connection record with state complete is present in the messageContext', () => {
+      expect.assertions(1)
+
+      const messageContext = new InboundMessageContext(new AgentMessage(), {
+        connection: getMockConnection({ state: ConnectionState.Complete }),
+      })
+
+      expect(() => connectionService.assertConnectionOrServiceDecorator(messageContext)).not.toThrow()
+    })
+
+    it('should throw an error when a connection record is present and state not complete in the messageContext', () => {
+      expect.assertions(1)
+
+      const messageContext = new InboundMessageContext(new AgentMessage(), {
+        connection: getMockConnection({ state: ConnectionState.Invited }),
+      })
+
+      expect(() => connectionService.assertConnectionOrServiceDecorator(messageContext)).toThrowError(
+        'Connection record is not ready to be used'
+      )
+    })
+
+    it('should not throw an error when no connection record is present in the messageContext and no additional data, but the message has a ~service decorator', () => {
+      expect.assertions(1)
+
+      const message = new AgentMessage()
+      message.setService({
+        recipientKeys: [],
+        serviceEndpoint: '',
+        routingKeys: [],
+      })
+      const messageContext = new InboundMessageContext(message)
+
+      expect(() => connectionService.assertConnectionOrServiceDecorator(messageContext)).not.toThrow()
+    })
+
+    it('should not throw when a fully valid connection-less input is passed', () => {
+      expect.assertions(1)
+
+      const senderKey = 'senderKey'
+      const recipientKey = 'recipientKey'
+
+      const previousSentMessage = new AgentMessage()
+      previousSentMessage.setService({
+        recipientKeys: [recipientKey],
+        serviceEndpoint: '',
+        routingKeys: [],
+      })
+
+      const previousReceivedMessage = new AgentMessage()
+      previousReceivedMessage.setService({
+        recipientKeys: [senderKey],
+        serviceEndpoint: '',
+        routingKeys: [],
+      })
+
+      const message = new AgentMessage()
+      message.setService({
+        recipientKeys: [],
+        serviceEndpoint: '',
+        routingKeys: [],
+      })
+      const messageContext = new InboundMessageContext(message, {
+        recipientVerkey: recipientKey,
+        senderVerkey: senderKey,
+      })
+
+      expect(() =>
+        connectionService.assertConnectionOrServiceDecorator(messageContext, {
+          previousReceivedMessage,
+          previousSentMessage,
+        })
+      ).not.toThrow()
+    })
+
+    it('should throw an error when previousSentMessage is present, but recipientVerkey is not ', () => {
+      expect.assertions(1)
+
+      const previousSentMessage = new AgentMessage()
+      previousSentMessage.setService({
+        recipientKeys: [],
+        serviceEndpoint: '',
+        routingKeys: [],
+      })
+
+      const message = new AgentMessage()
+      const messageContext = new InboundMessageContext(message)
+
+      expect(() =>
+        connectionService.assertConnectionOrServiceDecorator(messageContext, {
+          previousSentMessage,
+        })
+      ).toThrowError('Cannot verify service without recipientKey on incoming message')
+    })
+
+    it('should throw an error when previousSentMessage and recipientKey are present, but recipient key is not present in recipientKeys of previously sent message ~service decorator', () => {
+      expect.assertions(1)
+
+      const recipientKey = 'recipientKey'
+
+      const previousSentMessage = new AgentMessage()
+      previousSentMessage.setService({
+        recipientKeys: ['anotherKey'],
+        serviceEndpoint: '',
+        routingKeys: [],
+      })
+
+      const message = new AgentMessage()
+      const messageContext = new InboundMessageContext(message, {
+        recipientVerkey: recipientKey,
+      })
+
+      expect(() =>
+        connectionService.assertConnectionOrServiceDecorator(messageContext, {
+          previousSentMessage,
+        })
+      ).toThrowError(
+        'Previously sent message ~service recipientKeys does not include current received message recipient key'
+      )
+    })
+
+    it('should throw an error when previousReceivedMessage is present, but senderVerkey is not ', () => {
+      expect.assertions(1)
+
+      const previousReceivedMessage = new AgentMessage()
+      previousReceivedMessage.setService({
+        recipientKeys: [],
+        serviceEndpoint: '',
+        routingKeys: [],
+      })
+
+      const message = new AgentMessage()
+      const messageContext = new InboundMessageContext(message)
+
+      expect(() =>
+        connectionService.assertConnectionOrServiceDecorator(messageContext, {
+          previousReceivedMessage,
+        })
+      ).toThrowError('Cannot verify service without senderKey on incoming message')
+    })
+
+    it('should throw an error when previousReceivedMessage and senderKey are present, but sender key is not present in recipientKeys of previously received message ~service decorator', () => {
+      expect.assertions(1)
+
+      const senderKey = 'senderKey'
+
+      const previousReceivedMessage = new AgentMessage()
+      previousReceivedMessage.setService({
+        recipientKeys: ['anotherKey'],
+        serviceEndpoint: '',
+        routingKeys: [],
+      })
+
+      const message = new AgentMessage()
+      const messageContext = new InboundMessageContext(message, {
+        senderVerkey: senderKey,
+      })
+
+      expect(() =>
+        connectionService.assertConnectionOrServiceDecorator(messageContext, {
+          previousReceivedMessage,
+        })
+      ).toThrowError(
+        'Previously received message ~service recipientKeys does not include current received message sender key'
+      )
     })
   })
 

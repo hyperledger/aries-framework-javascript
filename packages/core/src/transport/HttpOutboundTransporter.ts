@@ -32,14 +32,14 @@ export class HttpOutboundTransporter implements OutboundTransporter {
   }
 
   public async sendMessage(outboundPackage: OutboundPackage) {
-    const { connection, payload, endpoint } = outboundPackage
+    const { payload, endpoint } = outboundPackage
 
     if (!endpoint) {
       throw new AriesFrameworkError(`Missing endpoint. I don't know how and where to send the message.`)
     }
 
-    this.logger.debug(`Sending outbound message to connection ${connection.id} (${connection.theirLabel})`, {
-      endpoint: endpoint,
+    this.logger.debug(`Sending outbound message to endpoint '${outboundPackage.endpoint}'`, {
+      payload: outboundPackage.payload,
     })
 
     try {

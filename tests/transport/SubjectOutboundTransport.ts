@@ -30,12 +30,9 @@ export class SubjectOutboundTransporter implements OutboundTransporter {
   }
 
   public async sendMessage(outboundPackage: OutboundPackage) {
-    this.logger.debug(
-      `Sending outbound message to connection ${outboundPackage.connection.id}  (${outboundPackage.connection.theirLabel})`,
-      {
-        endpoint: outboundPackage.endpoint,
-      }
-    )
+    this.logger.debug(`Sending outbound message to endpoint ${outboundPackage.endpoint}`, {
+      endpoint: outboundPackage.endpoint,
+    })
     const { payload, endpoint } = outboundPackage
 
     if (!endpoint) {

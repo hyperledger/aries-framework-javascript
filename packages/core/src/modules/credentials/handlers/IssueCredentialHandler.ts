@@ -4,7 +4,7 @@ import type { CredentialResponseCoordinator } from '../CredentialResponseCoordin
 import type { CredentialRecord } from '../repository/CredentialRecord'
 import type { CredentialService } from '../services'
 
-import { createOutboundMessage } from '../../../agent/helpers'
+import { createOutboundMessage, createOutboundServiceMessage } from '../../../agent/helpers'
 import { IssueCredentialMessage } from '../messages'
 
 export class IssueCredentialHandler implements Handler {
@@ -30,20 +30,25 @@ export class IssueCredentialHandler implements Handler {
     }
   }
 
-  private async createAck(
-    credentialRecord: CredentialRecord,
-    messageContext: HandlerInboundMessage<IssueCredentialHandler>
-  ) {
+  private async createAck(record: CredentialRecord, messageContext: HandlerInboundMessage<IssueCredentialHandler>) {
     this.agentConfig.logger.info(
       `Automatically sending acknowledgement with autoAccept on ${this.agentConfig.autoAcceptCredentials}`
     )
+    const { message, credentialRecord } = await this.credentialService.createAck(record)
 
-    if (!messageContext.connection) {
-      this.agentConfig.logger.error(`No connection on the messageContext`)
-      return
+    if (messageContext.connection) {
+      return createOutboundMessage(messageContext.connection, message)
+    } else if (credentialRecord.credentialMessage?.service && credentialRecord.requestMessage?.service) {
+      const recipientService = credentialRecord.credentialMessage.service
+      const ourService = credentialRecord.requestMessage.service
+
+      return createOutboundServiceMessage({
+        payload: message,
+        service: recipientService.toDidCommService(),
+        senderKey: ourService.recipientKeys[0],
+      })
     }
-    const { message } = await this.credentialService.createAck(credentialRecord)
 
-    return createOutboundMessage(messageContext.connection, message)
+    this.agentConfig.logger.error(`Could not automatically create credential ack`)
   }
 }

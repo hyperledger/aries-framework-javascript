@@ -1,16 +1,17 @@
 import type { AgentMessage } from './agent/AgentMessage'
-import type { TransportSession } from './agent/TransportService'
 import type { Logger } from './logger'
-import type { ConnectionRecord } from './modules/connections'
+import type { ConnectionRecord, DidCommService } from './modules/connections'
 import type { AutoAcceptCredential } from './modules/credentials/CredentialAutoAcceptType'
 import type { AutoAcceptProof } from './modules/proofs'
 import type { MediatorPickupStrategy } from './modules/routing'
 import type { Verkey, WalletConfig, WalletCredentials } from 'indy-sdk'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type $FixMe = any
-
-export type WireMessage = $FixMe
+export type WireMessage = {
+  protected: unknown
+  iv: unknown
+  ciphertext: unknown
+  tag: unknown
+}
 
 export enum DidCommMimeType {
   V0 = 'application/ssi-agent-wire',
@@ -50,23 +51,25 @@ export interface UnpackedMessage {
 
 export interface UnpackedMessageContext {
   message: UnpackedMessage
-  sender_verkey?: Verkey
-  recipient_verkey?: Verkey
+  senderVerkey?: Verkey
+  recipientVerkey?: Verkey
 }
 
-export type PackedMessage = Record<string, unknown>
-
 export interface OutboundMessage<T extends AgentMessage = AgentMessage> {
-  connection: ConnectionRecord
   payload: T
+  connection: ConnectionRecord
+}
+
+export interface OutboundServiceMessage<T extends AgentMessage = AgentMessage> {
+  payload: T
+  service: DidCommService
+  senderKey: string
 }
 
 export interface OutboundPackage {
-  connection: ConnectionRecord
   payload: WireMessage
   responseRequested?: boolean
   endpoint?: string
-  session?: TransportSession
 }
 
 export interface InboundConnection {

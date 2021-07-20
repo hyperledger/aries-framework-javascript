@@ -1,7 +1,7 @@
 import type { ConnectionRecord } from '../../modules/connections'
 import type { MessageRepository } from '../../storage/MessageRepository'
 import type { OutboundTransporter } from '../../transport'
-import type { OutboundMessage } from '../../types'
+import type { OutboundMessage, WireMessage } from '../../types'
 
 import { getAgentConfig, getMockConnection, mockFunction } from '../../../tests/helpers'
 import testLogger from '../../../tests/logger'
@@ -41,13 +41,11 @@ class DummyOutboundTransporter implements OutboundTransporter {
 describe('MessageSender', () => {
   const EnvelopeService = <jest.Mock<EnvelopeServiceImpl>>(<unknown>EnvelopeServiceImpl)
 
-  const wireMessage = {
-    alg: 'EC',
-    crv: 'P-256',
-    x: 'MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4',
-    y: '4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM',
-    use: 'enc',
-    kid: '1',
+  const wireMessage: WireMessage = {
+    protected: 'base64url',
+    iv: 'base64url',
+    ciphertext: 'base64url',
+    tag: 'base64url',
   }
 
   const enveloperService = new EnvelopeService()
@@ -98,7 +96,7 @@ describe('MessageSender', () => {
       outboundTransporter = new DummyOutboundTransporter()
       messageRepository = new InMemoryMessageRepository(getAgentConfig('MessageSender'))
       messageSender = new MessageSender(enveloperService, transportService, messageRepository, logger)
-      connection = getMockConnection({ id: 'test-123' })
+      connection = getMockConnection({ id: 'test-123', theirLabel: 'Test 123' })
 
       outboundMessage = createOutboundMessage(connection, new AgentMessage())
 
@@ -114,12 +112,12 @@ describe('MessageSender', () => {
       await expect(messageSender.sendMessage(outboundMessage)).rejects.toThrow(`Agent has no outbound transporter!`)
     })
 
-    test('throw error when there is no service', async () => {
+    test('throw error when there is no service or queue', async () => {
       messageSender.setOutboundTransporter(outboundTransporter)
       transportServiceFindServicesMock.mockReturnValue([])
 
       await expect(messageSender.sendMessage(outboundMessage)).rejects.toThrow(
-        `Connection with id test-123 has no service!`
+        `Message is undeliverable to connection test-123 (Test 123)`
       )
     })
 
@@ -134,7 +132,6 @@ describe('MessageSender', () => {
       await messageSender.sendMessage(outboundMessage)
 
       expect(sendMessageSpy).toHaveBeenCalledWith({
-        connection,
         payload: wireMessage,
         endpoint: firstDidCommService.serviceEndpoint,
         responseRequested: false,
@@ -152,7 +149,6 @@ describe('MessageSender', () => {
       await messageSender.sendMessage(outboundMessage)
 
       expect(sendMessageSpy).toHaveBeenCalledWith({
-        connection,
         payload: wireMessage,
         endpoint: firstDidCommService.serviceEndpoint,
         responseRequested: false,
@@ -163,48 +159,91 @@ describe('MessageSender', () => {
     test('call send message on session when there is a session for a given connection', async () => {
       messageSender.setOutboundTransporter(outboundTransporter)
       const sendMessageSpy = jest.spyOn(outboundTransporter, 'sendMessage')
-      session.connection = connection
-      transportServiceFindSessionMock.mockReturnValue(session)
+      const sendMessageToServiceSpy = jest.spyOn(messageSender, 'sendMessageToService')
 
       await messageSender.sendMessage(outboundMessage)
 
-      expect(session.send).toHaveBeenCalledWith({
-        connection,
-        payload: wireMessage,
+      expect(sendMessageToServiceSpy).toHaveBeenCalledWith({
+        message: outboundMessage.payload,
+        senderKey: connection.verkey,
+        service: firstDidCommService,
+        returnRoute: false,
       })
-      expect(sendMessageSpy).toHaveBeenCalledTimes(0)
-    })
-
-    test('call send message with connection, payload and endpoint from first DidComm service', async () => {
-      messageSender.setOutboundTransporter(outboundTransporter)
-      const sendMessageSpy = jest.spyOn(outboundTransporter, 'sendMessage')
-
-      await messageSender.sendMessage(outboundMessage)
-      expect(sendMessageSpy).toHaveBeenCalledWith({
-        connection,
-        payload: wireMessage,
-        endpoint: firstDidCommService.serviceEndpoint,
-        responseRequested: false,
-      })
+      expect(sendMessageToServiceSpy).toHaveBeenCalledTimes(1)
       expect(sendMessageSpy).toHaveBeenCalledTimes(1)
     })
 
-    test('call send message with connection, payload and endpoint from second DidComm service when the first fails', async () => {
+    test('calls sendMessageToService with payload and endpoint from second DidComm service when the first fails', async () => {
       messageSender.setOutboundTransporter(outboundTransporter)
       const sendMessageSpy = jest.spyOn(outboundTransporter, 'sendMessage')
+      const sendMessageToServiceSpy = jest.spyOn(messageSender, 'sendMessageToService')
 
       // Simulate the case when the first call fails
       sendMessageSpy.mockRejectedValueOnce(new Error())
 
       await messageSender.sendMessage(outboundMessage)
 
-      expect(sendMessageSpy).toHaveBeenNthCalledWith(2, {
-        connection,
+      expect(sendMessageToServiceSpy).toHaveBeenNthCalledWith(2, {
+        message: outboundMessage.payload,
+        senderKey: connection.verkey,
+        service: secondDidCommService,
+        returnRoute: false,
+      })
+      expect(sendMessageToServiceSpy).toHaveBeenCalledTimes(2)
+      expect(sendMessageSpy).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('sendMessageToService', () => {
+    const service = new DidCommService({
+      id: 'out-of-band',
+      recipientKeys: ['someKey'],
+      serviceEndpoint: 'https://example.com',
+    })
+    const senderKey = 'someVerkey'
+
+    beforeEach(() => {
+      outboundTransporter = new DummyOutboundTransporter()
+      messageSender = new MessageSender(
+        enveloperService,
+        transportService,
+        new InMemoryMessageRepository(getAgentConfig('MessageSenderTest')),
+        logger
+      )
+
+      envelopeServicePackMessageMock.mockReturnValue(Promise.resolve(wireMessage))
+    })
+
+    afterEach(() => {
+      jest.resetAllMocks()
+    })
+
+    test('throws error when there is no outbound transport', async () => {
+      await expect(
+        messageSender.sendMessageToService({
+          message: new AgentMessage(),
+          senderKey,
+          service,
+        })
+      ).rejects.toThrow(`Agent has no outbound transporter!`)
+    })
+
+    test('calls send message with payload and endpoint from DIDComm service', async () => {
+      messageSender.setOutboundTransporter(outboundTransporter)
+      const sendMessageSpy = jest.spyOn(outboundTransporter, 'sendMessage')
+
+      await messageSender.sendMessageToService({
+        message: new AgentMessage(),
+        senderKey,
+        service,
+      })
+
+      expect(sendMessageSpy).toHaveBeenCalledWith({
         payload: wireMessage,
-        endpoint: secondDidCommService.serviceEndpoint,
+        endpoint: service.serviceEndpoint,
         responseRequested: false,
       })
-      expect(sendMessageSpy).toHaveBeenCalledTimes(2)
+      expect(sendMessageSpy).toHaveBeenCalledTimes(1)
     })
 
     test('call send message with responseRequested when message has return route', async () => {
@@ -213,14 +252,16 @@ describe('MessageSender', () => {
 
       const message = new AgentMessage()
       message.setReturnRouting(ReturnRouteTypes.all)
-      const outboundMessage = createOutboundMessage(connection, message)
 
-      await messageSender.sendMessage(outboundMessage)
+      await messageSender.sendMessageToService({
+        message,
+        senderKey,
+        service,
+      })
 
       expect(sendMessageSpy).toHaveBeenCalledWith({
-        connection,
         payload: wireMessage,
-        endpoint: firstDidCommService.serviceEndpoint,
+        endpoint: service.serviceEndpoint,
         responseRequested: true,
       })
       expect(sendMessageSpy).toHaveBeenCalledTimes(1)
@@ -243,18 +284,19 @@ describe('MessageSender', () => {
 
     test('return outbound message context with connection, payload and endpoint', async () => {
       const message = new AgentMessage()
-      const outboundMessage = createOutboundMessage(connection, message)
+      const endpoint = 'https://example.com'
 
       const keys = {
         recipientKeys: ['service.recipientKeys'],
         routingKeys: [],
         senderKey: connection.verkey,
       }
-      const result = await messageSender.packMessage(outboundMessage, keys)
+      const result = await messageSender.packMessage({ message, keys, endpoint })
 
       expect(result).toEqual({
-        connection,
         payload: wireMessage,
+        responseRequested: message.hasAnyReturnRoute(),
+        endpoint,
       })
     })
   })

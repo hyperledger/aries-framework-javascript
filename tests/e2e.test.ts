@@ -2,6 +2,7 @@ import type { SubjectMessage } from './transport/SubjectInboundTransport'
 
 import { Subject } from 'rxjs'
 
+import { sleep } from '../packages/core/src/utils/sleep'
 import {
   getBaseConfig,
   issueCredential,
@@ -55,6 +56,10 @@ describe('E2E tests', () => {
 
   afterEach(async () => {
     await recipientAgent.shutdown({ deleteWallet: true })
+
+    // Recipient agent polls for messages. It sometimes happens a batch-pickup is sent just on shutdown
+    // This will then error because it can't deliver the message to the already shut-down mediator
+    await sleep(2000)
     await mediatorAgent.shutdown({ deleteWallet: true })
     await senderAgent.shutdown({ deleteWallet: true })
   })

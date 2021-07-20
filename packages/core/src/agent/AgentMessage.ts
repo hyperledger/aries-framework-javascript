@@ -1,6 +1,7 @@
 import { AckDecorated } from '../decorators/ack/AckDecoratorExtension'
 import { AttachmentDecorated } from '../decorators/attachment/AttachmentExtension'
 import { L10nDecorated } from '../decorators/l10n/L10nDecoratorExtension'
+import { ServiceDecorated } from '../decorators/service/ServiceDecoratorExtension'
 import { ThreadDecorated } from '../decorators/thread/ThreadDecoratorExtension'
 import { TimingDecorated } from '../decorators/timing/TimingDecoratorExtension'
 import { TransportDecorated } from '../decorators/transport/TransportDecoratorExtension'
@@ -16,6 +17,7 @@ const DefaultDecorators = [
   TimingDecorated,
   AckDecorated,
   AttachmentDecorated,
+  ServiceDecorated,
 ]
 
 export class AgentMessage extends Compose(BaseMessage, DefaultDecorators) {

@@ -1,4 +1,4 @@
-import type { PresentationPreview } from './messages'
+import type { PresentationPreview, RequestPresentationMessage } from './messages'
 import type { RequestedCredentials, RetrievedCredentials } from './models'
 import type { ProofRecord } from './repository/ProofRecord'
 
@@ -8,8 +8,10 @@ import { AgentConfig } from '../../agent/AgentConfig'
 import { Dispatcher } from '../../agent/Dispatcher'
 import { MessageSender } from '../../agent/MessageSender'
 import { createOutboundMessage } from '../../agent/helpers'
+import { ServiceDecorator } from '../../decorators/service/ServiceDecorator'
 import { AriesFrameworkError } from '../../error'
 import { ConnectionService } from '../connections/services/ConnectionService'
+import { MediationRecipientService } from '../routing/services/MediationRecipientService'
 
 import { ProofResponseCoordinator } from './ProofResponseCoordinator'
 import {
@@ -19,13 +21,16 @@ import {
   PresentationHandler,
 } from './handlers'
 import { ProofRequest } from './models/ProofRequest'
+import { ProofRepository } from './repository'
 import { ProofService } from './services'
 
 @scoped(Lifecycle.ContainerScoped)
 export class ProofsModule {
   private proofService: ProofService
   private connectionService: ConnectionService
+  private proofRepository: ProofRepository
   private messageSender: MessageSender
+  private mediationRecipientService: MediationRecipientService
   private agentConfig: AgentConfig
   private proofResponseCoordinator: ProofResponseCoordinator
 
@@ -33,13 +38,17 @@ export class ProofsModule {
     dispatcher: Dispatcher,
     proofService: ProofService,
     connectionService: ConnectionService,
+    proofRepository: ProofRepository,
+    mediationRecipientService: MediationRecipientService,
     agentConfig: AgentConfig,
     messageSender: MessageSender,
     proofResponseCoordinator: ProofResponseCoordinator
   ) {
     this.proofService = proofService
     this.connectionService = connectionService
+    this.proofRepository = proofRepository
     this.messageSender = messageSender
+    this.mediationRecipientService = mediationRecipientService
     this.agentConfig = agentConfig
     this.proofResponseCoordinator = proofResponseCoordinator
     this.registerHandlers(dispatcher)
@@ -93,6 +102,13 @@ export class ProofsModule {
     }
   ): Promise<ProofRecord> {
     const proofRecord = await this.proofService.getById(proofRecordId)
+
+    if (!proofRecord.connectionId) {
+      throw new AriesFrameworkError(
+        `No connectionId found for credential record '${proofRecord.id}'. Connection-less issuance does not support presentation proposal or negotiation.`
+      )
+    }
+
     const connection = await this.connectionService.getById(proofRecord.connectionId)
 
     const presentationProposal = proofRecord.proposalMessage?.presentationProposal
@@ -122,17 +138,10 @@ export class ProofsModule {
    *
    * @param connectionId The connection to send the proof request to
    * @param proofRequestOptions Options to build the proof request
-   * @param config Additional configuration to use for the request
    * @returns Proof record associated with the sent request message
    *
    */
-  public async requestProof(
-    connectionId: string,
-    proofRequestOptions: Partial<Pick<ProofRequest, 'name' | 'nonce' | 'requestedAttributes' | 'requestedPredicates'>>,
-    config?: {
-      comment?: string
-    }
-  ): Promise<ProofRecord> {
+  public async requestProof(connectionId: string, proofRequestOptions: ProofRequestOptions): Promise<ProofRecord> {
     const connection = await this.connectionService.getById(connectionId)
 
     const nonce = proofRequestOptions.nonce ?? (await this.proofService.generateProofRequestNonce())
@@ -145,12 +154,57 @@ export class ProofsModule {
       requestedPredicates: proofRequestOptions.requestedPredicates,
     })
 
-    const { message, proofRecord } = await this.proofService.createRequest(connection, proofRequest, config)
+    const { message, proofRecord } = await this.proofService.createRequest(
+      { proofRequest, comment: proofRequestOptions.comment },
+      connection
+    )
 
     const outboundMessage = createOutboundMessage(connection, message)
     await this.messageSender.sendMessage(outboundMessage)
 
     return proofRecord
+  }
+
+  /**
+   * Initiate a new presentation exchange as verifier by creating a presentation request
+   * not bound to any connection. The request must be delivered out-of-band to the holder
+   *
+   * @param proofRequestOptions Options to build the proof request
+   * @returns The proof record and proof request message
+   *
+   */
+  public async createOutOfBandRequest(proofRequestOptions: ProofRequestOptions): Promise<{
+    requestMessage: RequestPresentationMessage
+    proofRecord: ProofRecord
+  }> {
+    const nonce = proofRequestOptions.nonce ?? (await this.proofService.generateProofRequestNonce())
+
+    const proofRequest = new ProofRequest({
+      name: proofRequestOptions.name ?? 'proof-request',
+      version: proofRequestOptions.name ?? '1.0',
+      nonce,
+      requestedAttributes: proofRequestOptions.requestedAttributes,
+      requestedPredicates: proofRequestOptions.requestedPredicates,
+    })
+
+    const { message, proofRecord } = await this.proofService.createRequest({
+      proofRequest,
+      comment: proofRequestOptions.comment,
+    })
+
+    // Create and set ~service decorator
+    const routing = await this.mediationRecipientService.getRouting()
+    message.service = new ServiceDecorator({
+      serviceEndpoint: routing.endpoint,
+      recipientKeys: [routing.verkey],
+      routingKeys: routing.routingKeys,
+    })
+
+    // Save ~service decorator to record (to remember our verkey)
+    proofRecord.requestMessage = message
+    await this.proofRepository.update(proofRecord)
+
+    return { proofRecord, requestMessage: message }
   }
 
   /**
@@ -170,15 +224,50 @@ export class ProofsModule {
       comment?: string
     }
   ): Promise<ProofRecord> {
-    const proofRecord = await this.proofService.getById(proofRecordId)
-    const connection = await this.connectionService.getById(proofRecord.connectionId)
+    const record = await this.proofService.getById(proofRecordId)
+    const { message, proofRecord } = await this.proofService.createPresentation(record, requestedCredentials, config)
 
-    const { message } = await this.proofService.createPresentation(proofRecord, requestedCredentials, config)
+    // Use connection if present
+    if (proofRecord.connectionId) {
+      const connection = await this.connectionService.getById(proofRecord.connectionId)
 
-    const outboundMessage = createOutboundMessage(connection, message)
-    await this.messageSender.sendMessage(outboundMessage)
+      const outboundMessage = createOutboundMessage(connection, message)
+      await this.messageSender.sendMessage(outboundMessage)
 
-    return proofRecord
+      return proofRecord
+    }
+    // Use ~service decorator otherwise
+    else if (proofRecord.requestMessage?.service) {
+      // Create ~service decorator
+      const routing = await this.mediationRecipientService.getRouting()
+      const ourService = new ServiceDecorator({
+        serviceEndpoint: routing.endpoint,
+        recipientKeys: [routing.verkey],
+        routingKeys: routing.routingKeys,
+      })
+
+      const recipientService = proofRecord.requestMessage.service
+
+      // Set and save ~service decorator to record (to remember our verkey)
+      message.service = ourService
+      proofRecord.presentationMessage = message
+      await this.proofRepository.update(proofRecord)
+
+      await this.messageSender.sendMessageToService({
+        message,
+        service: recipientService.toDidCommService(),
+        senderKey: ourService.recipientKeys[0],
+        returnRoute: true,
+      })
+
+      return proofRecord
+    }
+    // Cannot send message without connectionId or ~service decorator
+    else {
+      throw new AriesFrameworkError(
+        `Cannot accept presentation request without connectionId or ~service decorator on presentation request.`
+      )
+    }
   }
 
   /**
@@ -190,12 +279,34 @@ export class ProofsModule {
    *
    */
   public async acceptPresentation(proofRecordId: string): Promise<ProofRecord> {
-    const proofRecord = await this.proofService.getById(proofRecordId)
-    const connection = await this.connectionService.getById(proofRecord.connectionId)
+    const record = await this.proofService.getById(proofRecordId)
+    const { message, proofRecord } = await this.proofService.createAck(record)
 
-    const { message } = await this.proofService.createAck(proofRecord)
-    const outboundMessage = createOutboundMessage(connection, message)
-    await this.messageSender.sendMessage(outboundMessage)
+    // Use connection if present
+    if (proofRecord.connectionId) {
+      const connection = await this.connectionService.getById(proofRecord.connectionId)
+      const outboundMessage = createOutboundMessage(connection, message)
+      await this.messageSender.sendMessage(outboundMessage)
+    }
+    // Use ~service decorator otherwise
+    else if (proofRecord.requestMessage?.service && proofRecord.presentationMessage?.service) {
+      const recipientService = proofRecord.presentationMessage?.service
+      const ourService = proofRecord.requestMessage?.service
+
+      await this.messageSender.sendMessageToService({
+        message,
+        service: recipientService.toDidCommService(),
+        senderKey: ourService.recipientKeys[0],
+        returnRoute: true,
+      })
+    }
+
+    // Cannot send message without credentialId or ~service decorator
+    else {
+      throw new AriesFrameworkError(
+        `Cannot accept presentation without connectionId or ~service decorator on presentation message.`
+      )
+    }
 
     return proofRecord
   }
@@ -236,7 +347,7 @@ export class ProofsModule {
    *
    * @returns List containing all proof records
    */
-  public async getAll(): Promise<ProofRecord[]> {
+  public getAll(): Promise<ProofRecord[]> {
     return this.proofService.getAll()
   }
 
@@ -264,29 +375,26 @@ export class ProofsModule {
     return this.proofService.findById(proofRecordId)
   }
 
-  /**
-   * Retrieve a proof record by connection id and thread id
-   *
-   * @param connectionId The connection id
-   * @param threadId The thread id
-   * @throws {RecordNotFoundError} If no record is found
-   * @throws {RecordDuplicateError} If multiple records are found
-   * @returns The proof record
-   */
-  public async getByConnectionAndThreadId(connectionId: string, threadId: string): Promise<ProofRecord> {
-    return this.proofService.getByConnectionAndThreadId(connectionId, threadId)
-  }
-
   private registerHandlers(dispatcher: Dispatcher) {
     dispatcher.registerHandler(
       new ProposePresentationHandler(this.proofService, this.agentConfig, this.proofResponseCoordinator)
     )
     dispatcher.registerHandler(
-      new RequestPresentationHandler(this.proofService, this.agentConfig, this.proofResponseCoordinator)
+      new RequestPresentationHandler(
+        this.proofService,
+        this.agentConfig,
+        this.proofResponseCoordinator,
+        this.mediationRecipientService
+      )
     )
     dispatcher.registerHandler(
       new PresentationHandler(this.proofService, this.agentConfig, this.proofResponseCoordinator)
     )
     dispatcher.registerHandler(new PresentationAckHandler(this.proofService))
   }
+}
+
+export interface ProofRequestOptions
+  extends Partial<Pick<ProofRequest, 'name' | 'nonce' | 'requestedAttributes' | 'requestedPredicates'>> {
+  comment?: string
 }

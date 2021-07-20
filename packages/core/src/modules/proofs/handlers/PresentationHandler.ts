@@ -4,7 +4,7 @@ import type { ProofResponseCoordinator } from '../ProofResponseCoordinator'
 import type { ProofRecord } from '../repository'
 import type { ProofService } from '../services'
 
-import { createOutboundMessage } from '../../../agent/helpers'
+import { createOutboundMessage, createOutboundServiceMessage } from '../../../agent/helpers'
 import { PresentationMessage } from '../messages'
 
 export class PresentationHandler implements Handler {
@@ -31,18 +31,26 @@ export class PresentationHandler implements Handler {
     }
   }
 
-  private async createAck(proofRecord: ProofRecord, messageContext: HandlerInboundMessage<PresentationHandler>) {
+  private async createAck(record: ProofRecord, messageContext: HandlerInboundMessage<PresentationHandler>) {
     this.agentConfig.logger.info(
       `Automatically sending acknowledgement with autoAccept on ${this.agentConfig.autoAcceptProofs}`
     )
 
-    if (!messageContext.connection) {
-      this.agentConfig.logger.error('No connection on the messageContext')
-      return
+    const { message, proofRecord } = await this.proofService.createAck(record)
+
+    if (messageContext.connection) {
+      return createOutboundMessage(messageContext.connection, message)
+    } else if (proofRecord.requestMessage?.service && proofRecord.presentationMessage?.service) {
+      const recipientService = proofRecord.presentationMessage?.service
+      const ourService = proofRecord.requestMessage?.service
+
+      return createOutboundServiceMessage({
+        payload: message,
+        service: recipientService.toDidCommService(),
+        senderKey: ourService.recipientKeys[0],
+      })
     }
 
-    const { message } = await this.proofService.createAck(proofRecord)
-
-    return createOutboundMessage(messageContext.connection, message)
+    this.agentConfig.logger.error(`Could not automatically create presentation ack`)
   }
 }

@@ -26,7 +26,7 @@ export class ProposePresentationHandler implements Handler {
   public async handle(messageContext: HandlerInboundMessage<ProposePresentationHandler>) {
     const proofRecord = await this.proofService.processProposal(messageContext)
 
-    if (this.proofResponseCoordinator.shoudlAutoRespondToProposal(proofRecord)) {
+    if (this.proofResponseCoordinator.shouldAutoRespondToProposal(proofRecord)) {
       return await this.createRequest(proofRecord, messageContext)
     }
   }

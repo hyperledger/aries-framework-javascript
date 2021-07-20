@@ -4,7 +4,7 @@ import type { CredentialResponseCoordinator } from '../CredentialResponseCoordin
 import type { CredentialRecord } from '../repository/CredentialRecord'
 import type { CredentialService } from '../services'
 
-import { createOutboundMessage } from '../../../agent/helpers'
+import { createOutboundMessage, createOutboundServiceMessage } from '../../../agent/helpers'
 import { RequestCredentialMessage } from '../messages'
 
 export class RequestCredentialHandler implements Handler {
@@ -31,20 +31,33 @@ export class RequestCredentialHandler implements Handler {
   }
 
   private async createCredential(
-    credentialRecord: CredentialRecord,
+    record: CredentialRecord,
     messageContext: HandlerInboundMessage<RequestCredentialHandler>
   ) {
     this.agentConfig.logger.info(
       `Automatically sending credential with autoAccept on ${this.agentConfig.autoAcceptCredentials}`
     )
 
-    if (!messageContext.connection) {
-      this.agentConfig.logger.error(`No connection on the messageContext`)
-      return
+    const { message, credentialRecord } = await this.credentialService.createCredential(record)
+
+    if (messageContext.connection) {
+      return createOutboundMessage(messageContext.connection, message)
+    } else if (credentialRecord.requestMessage?.service && credentialRecord.offerMessage?.service) {
+      const recipientService = credentialRecord.requestMessage.service
+      const ourService = credentialRecord.offerMessage.service
+
+      // Set ~service, update message in record (for later use)
+      message.setService(ourService)
+      credentialRecord.credentialMessage = message
+      await this.credentialService.update(credentialRecord)
+
+      return createOutboundServiceMessage({
+        payload: message,
+        service: recipientService.toDidCommService(),
+        senderKey: ourService.recipientKeys[0],
+      })
     }
 
-    const { message } = await this.credentialService.createCredential(credentialRecord)
-
-    return createOutboundMessage(messageContext.connection, message)
+    this.agentConfig.logger.error(`Could not automatically create credential request`)
   }
 }

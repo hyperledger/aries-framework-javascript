@@ -1,6 +1,5 @@
 import type { Agent } from '../agent/Agent'
 import type { Logger } from '../logger'
-import type { ConnectionRecord } from '../modules/connections'
 import type { OutboundPackage } from '../types'
 import type { OutboundTransporter } from './OutboundTransporter'
 import type WebSocket from 'ws'
@@ -36,13 +35,18 @@ export class WsOutboundTransporter implements OutboundTransporter {
   }
 
   public async sendMessage(outboundPackage: OutboundPackage) {
-    const { connection, payload, endpoint } = outboundPackage
-    this.logger.debug(
-      `Sending outbound message to connection ${connection.id}  (${connection.theirLabel}) over websocket transport.`,
-      payload
-    )
-    const isNewSocket = this.hasOpenSocket(connection.id)
-    const socket = await this.resolveSocket(connection, endpoint)
+    const { payload, endpoint } = outboundPackage
+    this.logger.debug(`Sending outbound message to endpoint '${endpoint}' over WebSocket transport.`, {
+      payload,
+    })
+
+    if (!endpoint) {
+      throw new AriesFrameworkError("Missing connection or endpoint. I don't know how and where to send the message.")
+    }
+
+    const isNewSocket = this.hasOpenSocket(endpoint)
+    const socket = await this.resolveSocket(endpoint, endpoint)
+
     socket.send(JSON.stringify(payload))
 
     // If the socket was created for this message and we don't have return routing enabled
@@ -56,18 +60,16 @@ export class WsOutboundTransporter implements OutboundTransporter {
     return this.transportTable.get(socketId) !== undefined
   }
 
-  private async resolveSocket(connection: ConnectionRecord, endpoint?: string) {
-    const socketId = connection.id
-
+  private async resolveSocket(socketIdentifier: string, endpoint?: string) {
     // If we already have a socket connection use it
-    let socket = this.transportTable.get(socketId)
+    let socket = this.transportTable.get(socketIdentifier)
 
     if (!socket) {
       if (!endpoint) {
         throw new AriesFrameworkError(`Missing endpoint. I don't know how and where to send the message.`)
       }
-      socket = await this.createSocketConnection(endpoint, socketId)
-      this.transportTable.set(socketId, socket)
+      socket = await this.createSocketConnection(endpoint, socketIdentifier)
+      this.transportTable.set(socketIdentifier, socket)
       this.listenOnWebSocketMessages(socket)
     }
 

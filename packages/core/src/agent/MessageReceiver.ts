@@ -1,5 +1,5 @@
 import type { Logger } from '../logger'
-import type { UnpackedMessageContext, UnpackedMessage } from '../types'
+import type { UnpackedMessageContext, UnpackedMessage, WireMessage } from '../types'
 import type { AgentMessage } from './AgentMessage'
 import type { TransportSession } from './TransportService'
 
@@ -53,13 +53,15 @@ export class MessageReceiver {
 
     this.logger.debug(`Agent ${this.config.label} received message`)
 
-    const unpackedMessage = await this.unpackMessage(inboundPackedMessage as Record<string, unknown>)
-    const senderKey = unpackedMessage.sender_verkey
+    const unpackedMessage = await this.unpackMessage(inboundPackedMessage as WireMessage)
+    const senderKey = unpackedMessage.senderVerkey
+    const recipientKey = unpackedMessage.recipientVerkey
+
     let connection = undefined
-    if (senderKey && unpackedMessage.recipient_verkey) {
+    if (senderKey && recipientKey) {
       // TODO: only attach if theirKey is present. Otherwise a connection that may not be complete, validated or correct will
       // be attached to the message context. See #76
-      connection = (await this.connectionService.findByVerkey(unpackedMessage.recipient_verkey)) || undefined
+      connection = (await this.connectionService.findByVerkey(recipientKey)) || undefined
 
       // We check whether the sender key is the same as the key we have stored in the connection
       // otherwise everyone could send messages to our key and we would just accept
@@ -80,18 +82,17 @@ export class MessageReceiver {
     const messageContext = new InboundMessageContext(message, {
       connection,
       senderVerkey: senderKey,
-      recipientVerkey: unpackedMessage.recipient_verkey,
+      recipientVerkey: recipientKey,
     })
 
     // We want to save a session if there is a chance of returning outbound message via inbound transport.
     // That can happen when inbound message has `return_route` set to `all` or `thread`.
     // If `return_route` defines just `thread`, we decide later whether to use session according to outbound message `threadId`.
-    if (connection && message.hasAnyReturnRoute() && session) {
+    if (senderKey && recipientKey && message.hasAnyReturnRoute() && session) {
       const keys = {
-        // TODO handle the case when senderKey is missing
-        recipientKeys: senderKey ? [senderKey] : [],
+        recipientKeys: [senderKey],
         routingKeys: [],
-        senderKey: connection?.verkey || null,
+        senderKey: recipientKey,
       }
       session.keys = keys
       session.inboundMessage = message
@@ -99,7 +100,7 @@ export class MessageReceiver {
       this.transportService.saveSession(session)
     }
 
-    return await this.dispatcher.dispatch(messageContext)
+    await this.dispatcher.dispatch(messageContext)
   }
 
   /**
@@ -108,7 +109,7 @@ export class MessageReceiver {
    *
    * @param packedMessage the received, probably packed, message to unpack
    */
-  private async unpackMessage(packedMessage: Record<string, unknown>): Promise<UnpackedMessageContext> {
+  private async unpackMessage(packedMessage: WireMessage): Promise<UnpackedMessageContext> {
     // If the inbound message has no @type field we assume
     // the message is packed and must be unpacked first
     if (!this.isUnpackedMessage(packedMessage)) {

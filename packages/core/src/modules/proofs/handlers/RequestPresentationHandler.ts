@@ -1,26 +1,31 @@
 import type { AgentConfig } from '../../../agent/AgentConfig'
 import type { Handler, HandlerInboundMessage } from '../../../agent/Handler'
+import type { MediationRecipientService } from '../../routing'
 import type { ProofResponseCoordinator } from '../ProofResponseCoordinator'
 import type { ProofRecord } from '../repository'
 import type { ProofService } from '../services'
 
-import { createOutboundMessage } from '../../../agent/helpers'
+import { createOutboundMessage, createOutboundServiceMessage } from '../../../agent/helpers'
+import { ServiceDecorator } from '../../../decorators/service/ServiceDecorator'
 import { RequestPresentationMessage } from '../messages'
 
 export class RequestPresentationHandler implements Handler {
   private proofService: ProofService
   private agentConfig: AgentConfig
   private proofResponseCoordinator: ProofResponseCoordinator
+  private mediationRecipientService: MediationRecipientService
   public supportedMessages = [RequestPresentationMessage]
 
   public constructor(
     proofService: ProofService,
     agentConfig: AgentConfig,
-    proofResponseCoordinator: ProofResponseCoordinator
+    proofResponseCoordinator: ProofResponseCoordinator,
+    mediationRecipientService: MediationRecipientService
   ) {
     this.proofService = proofService
     this.agentConfig = agentConfig
     this.proofResponseCoordinator = proofResponseCoordinator
+    this.mediationRecipientService = mediationRecipientService
   }
 
   public async handle(messageContext: HandlerInboundMessage<RequestPresentationHandler>) {
@@ -32,19 +37,14 @@ export class RequestPresentationHandler implements Handler {
   }
 
   private async createPresentation(
-    proofRecord: ProofRecord,
+    record: ProofRecord,
     messageContext: HandlerInboundMessage<RequestPresentationHandler>
   ) {
-    const indyProofRequest = proofRecord.requestMessage?.indyProofRequest
+    const indyProofRequest = record.requestMessage?.indyProofRequest
 
     this.agentConfig.logger.info(
       `Automatically sending presentation with autoAccept on ${this.agentConfig.autoAcceptProofs}`
     )
-
-    if (!messageContext.connection) {
-      this.agentConfig.logger.error('No connection on the messageContext')
-      return
-    }
 
     if (!indyProofRequest) {
       return
@@ -52,13 +52,38 @@ export class RequestPresentationHandler implements Handler {
 
     const retrievedCredentials = await this.proofService.getRequestedCredentialsForProofRequest(
       indyProofRequest,
-      proofRecord.proposalMessage?.presentationProposal
+      record.proposalMessage?.presentationProposal
     )
 
     const requestedCredentials = this.proofService.autoSelectCredentialsForProofRequest(retrievedCredentials)
 
-    const { message } = await this.proofService.createPresentation(proofRecord, requestedCredentials)
+    const { message, proofRecord } = await this.proofService.createPresentation(record, requestedCredentials)
 
-    return createOutboundMessage(messageContext.connection, message)
+    if (messageContext.connection) {
+      return createOutboundMessage(messageContext.connection, message)
+    } else if (proofRecord.requestMessage?.service) {
+      // Create ~service decorator
+      const routing = await this.mediationRecipientService.getRouting()
+      const ourService = new ServiceDecorator({
+        serviceEndpoint: routing.endpoint,
+        recipientKeys: [routing.verkey],
+        routingKeys: routing.routingKeys,
+      })
+
+      const recipientService = proofRecord.requestMessage.service
+
+      // Set and save ~service decorator to record (to remember our verkey)
+      message.service = ourService
+      proofRecord.presentationMessage = message
+      await this.proofService.update(proofRecord)
+
+      return createOutboundServiceMessage({
+        payload: message,
+        service: recipientService.toDidCommService(),
+        senderKey: ourService.recipientKeys[0],
+      })
+    }
+
+    this.agentConfig.logger.error(`Could not automatically create presentation`)
   }
 }

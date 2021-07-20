@@ -29,6 +29,6 @@ export class ForwardHandler implements Handler {
 
     // The message inside the forward message is packed so we just send the packed
     // message to the connection associated with it
-    await this.messageSender.sendMessage({ connection: connectionRecord, payload: packedMessage })
+    await this.messageSender.sendPackage({ connection: connectionRecord, packedMessage })
   }
 }

@@ -1,52 +1,22 @@
 import type { Agent } from '../src/agent/Agent'
 import type { ConnectionRecord } from '../src/modules/connections'
 
-import {
-  AutoAcceptCredential,
-  CredentialPreview,
-  CredentialPreviewAttribute,
-  CredentialRecord,
-  CredentialState,
-} from '../src/modules/credentials'
+import { AutoAcceptCredential, CredentialRecord, CredentialState } from '../src/modules/credentials'
 import { JsonTransformer } from '../src/utils/JsonTransformer'
 import { sleep } from '../src/utils/sleep'
 
-import { setupCredentialTests, waitForCredentialRecord } from './helpers'
+import { previewFromAttributes, setupCredentialTests, waitForCredentialRecord } from './helpers'
 import testLogger from './logger'
 
-const credentialPreview = new CredentialPreview({
-  attributes: [
-    new CredentialPreviewAttribute({
-      name: 'name',
-      mimeType: 'text/plain',
-      value: 'John',
-    }),
-    new CredentialPreviewAttribute({
-      name: 'age',
-      mimeType: 'text/plain',
-      value: '99',
-    }),
-  ],
+const credentialPreview = previewFromAttributes({
+  name: 'John',
+  age: '99',
 })
 
-const newCredentialPreview = new CredentialPreview({
-  attributes: [
-    new CredentialPreviewAttribute({
-      name: 'name',
-      mimeType: 'text/plain',
-      value: 'John',
-    }),
-    new CredentialPreviewAttribute({
-      name: 'age',
-      mimeType: 'text/plain',
-      value: '99',
-    }),
-    new CredentialPreviewAttribute({
-      name: 'lastname',
-      mimeType: 'text/plain',
-      value: 'Appleseed',
-    }),
-  ],
+const newCredentialPreview = previewFromAttributes({
+  name: 'John',
+  age: '99',
+  lastname: 'Appleseed',
 })
 
 describe('auto accept credentials', () => {
@@ -265,12 +235,10 @@ describe('auto accept credentials', () => {
             attributes: [
               {
                 name: 'name',
-                'mime-type': 'text/plain',
                 value: 'John',
               },
               {
                 name: 'age',
-                'mime-type': 'text/plain',
                 value: '99',
               },
             ],
@@ -360,17 +328,14 @@ describe('auto accept credentials', () => {
             attributes: [
               {
                 name: 'name',
-                'mime-type': 'text/plain',
                 value: 'John',
               },
               {
                 name: 'age',
-                'mime-type': 'text/plain',
                 value: '99',
               },
               {
                 name: 'lastname',
-                'mime-type': 'text/plain',
                 value: 'Appleseed',
               },
             ],
@@ -423,12 +388,10 @@ describe('auto accept credentials', () => {
             attributes: [
               {
                 name: 'name',
-                'mime-type': 'text/plain',
                 value: 'John',
               },
               {
                 name: 'age',
-                'mime-type': 'text/plain',
                 value: '99',
               },
             ],
@@ -463,17 +426,14 @@ describe('auto accept credentials', () => {
             attributes: [
               {
                 name: 'name',
-                'mime-type': 'text/plain',
                 value: 'John',
               },
               {
                 name: 'age',
-                'mime-type': 'text/plain',
                 value: '99',
               },
               {
                 name: 'lastname',
-                'mime-type': 'text/plain',
                 value: 'Appleseed',
               },
             ],

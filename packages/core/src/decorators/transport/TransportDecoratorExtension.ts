@@ -34,7 +34,7 @@ export function TransportDecorated<T extends BaseMessageConstructor>(Base: T) {
 
     public hasAnyReturnRoute() {
       const returnRoute = this.transport?.returnRoute
-      return returnRoute && (returnRoute === ReturnRouteTypes.all || returnRoute === ReturnRouteTypes.thread)
+      return returnRoute === ReturnRouteTypes.all || returnRoute === ReturnRouteTypes.thread
     }
   }
 

@@ -1,4 +1,4 @@
-import type { WireMessage } from '../../../types'
+import type { SubjectMessage } from '../../../../../../tests/transport/SubjectInboundTransport'
 
 import { Subject } from 'rxjs'
 
@@ -44,9 +44,9 @@ describe('mediator establishment', () => {
         5. Assert endpoint in recipient invitation for sender is mediator endpoint
         6. Send basic message from sender to recipient and assert it is received on the recipient side
 `, async () => {
-    const mediatorMessages = new Subject<WireMessage>()
-    const recipientMessages = new Subject<WireMessage>()
-    const senderMessages = new Subject<WireMessage>()
+    const mediatorMessages = new Subject<SubjectMessage>()
+    const recipientMessages = new Subject<SubjectMessage>()
+    const senderMessages = new Subject<SubjectMessage>()
 
     const subjectMap = {
       'rxjs:mediator': mediatorMessages,

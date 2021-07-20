@@ -34,7 +34,7 @@ export class ProofResponseCoordinator {
   /**
    * Checks whether it should automatically respond to a proposal
    */
-  public shoudlAutoRespondToProposal(proofRecord: ProofRecord) {
+  public shouldAutoRespondToProposal(proofRecord: ProofRecord) {
     const autoAccept = ProofResponseCoordinator.composeAutoAccept(
       proofRecord.autoAcceptProof,
       this.agentConfig.autoAcceptProofs
@@ -66,7 +66,7 @@ export class ProofResponseCoordinator {
   }
 
   /**
-   * Checks whether it should automatically respond to a presention of proof
+   * Checks whether it should automatically respond to a presentation of proof
    */
   public shouldAutoRespondToPresentation(proofRecord: ProofRecord) {
     const autoAccept = ProofResponseCoordinator.composeAutoAccept(
