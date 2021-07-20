@@ -62,10 +62,6 @@ export class AgentConfig {
     return this.initConfig.walletConfig
   }
 
-  public get walletCredentials() {
-    return this.initConfig.walletCredentials
-  }
-
   public get autoAcceptConnections() {
     return this.initConfig.autoAcceptConnections ?? false
   }

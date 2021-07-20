@@ -43,7 +43,7 @@ describe('Decorators | Signature | SignatureDecoratorUtils', () => {
     const config = getAgentConfig('SignatureDecoratorUtilsTest')
     wallet = new IndyWallet(config)
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    await wallet.initialize(config.walletConfig!, config.walletCredentials!)
+    await wallet.initialize(config.walletConfig!)
   })
 
   afterAll(async () => {
@@ -52,7 +52,7 @@ describe('Decorators | Signature | SignatureDecoratorUtils', () => {
 
   test('signData signs json object and returns SignatureDecorator', async () => {
     const seed1 = '00000000000000000000000000000My1'
-    const [, verkey] = await wallet.createDid({ seed: seed1 })
+    const { verkey } = await wallet.createDid({ seed: seed1 })
 
     const result = await signData(data, wallet, verkey)
 

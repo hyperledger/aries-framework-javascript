@@ -160,7 +160,7 @@ export class MediationRecipientService {
     let routingKeys: string[] = []
 
     // Create and store new key
-    const [did, verkey] = await this.wallet.createDid()
+    const { did, verkey } = await this.wallet.createDid()
     if (mediationRecord) {
       routingKeys = [...routingKeys, ...mediationRecord.routingKeys]
       endpoint = mediationRecord.endpoint ?? endpoint

@@ -7,14 +7,14 @@ import { InjectionSymbols } from '../../constants'
 import { AriesFrameworkError } from '../../error'
 import { Wallet } from '../../wallet/Wallet'
 
-import { LedgerService } from './services'
+import { IndyLedgerService } from './services'
 
 @scoped(Lifecycle.ContainerScoped)
 export class LedgerModule {
-  private ledgerService: LedgerService
+  private ledgerService: IndyLedgerService
   private wallet: Wallet
 
-  public constructor(@inject(InjectionSymbols.Wallet) wallet: Wallet, ledgerService: LedgerService) {
+  public constructor(@inject(InjectionSymbols.Wallet) wallet: Wallet, ledgerService: IndyLedgerService) {
     this.ledgerService = ledgerService
     this.wallet = wallet
   }

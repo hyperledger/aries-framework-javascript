@@ -3,6 +3,7 @@ import type * as Indy from 'indy-sdk'
 import { Lifecycle, scoped } from 'tsyringe'
 
 import { AgentConfig } from '../../../agent/AgentConfig'
+import { IndySdkError } from '../../../error'
 
 @scoped(Lifecycle.ContainerScoped)
 export class IndyVerifierService {
@@ -12,7 +13,7 @@ export class IndyVerifierService {
     this.indy = agentConfig.agentDependencies.indy
   }
 
-  public verifyProof({
+  public async verifyProof({
     proofRequest,
     proof,
     schemas,
@@ -20,14 +21,18 @@ export class IndyVerifierService {
     revocationRegistryDefinitions = {},
     revocationStates = {},
   }: VerifyProofOptions): Promise<boolean> {
-    return this.indy.verifierVerifyProof(
-      proofRequest,
-      proof,
-      schemas,
-      credentialDefinitions,
-      revocationRegistryDefinitions,
-      revocationStates
-    )
+    try {
+      return await this.indy.verifierVerifyProof(
+        proofRequest,
+        proof,
+        schemas,
+        credentialDefinitions,
+        revocationRegistryDefinitions,
+        revocationStates
+      )
+    } catch (error) {
+      throw new IndySdkError(error)
+    }
   }
 }
 

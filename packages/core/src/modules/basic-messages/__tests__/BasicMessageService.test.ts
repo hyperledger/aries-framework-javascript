@@ -1,6 +1,5 @@
 import type { AgentConfig } from '../../../agent/AgentConfig'
 import type { StorageService } from '../../../storage/StorageService'
-import type { Wallet } from '../../../wallet/Wallet'
 import type { BasicMessageReceivedEvent } from '../BasicMessageEvents'
 
 import { getAgentConfig, getMockConnection } from '../../../../tests/helpers'
@@ -22,7 +21,7 @@ describe('BasicMessageService', () => {
     did: 'did:sov:C2SsBf5QUQpqSAQfhu3sd2',
   })
 
-  let wallet: Wallet
+  let wallet: IndyWallet
   let storageService: StorageService<BasicMessageRecord>
   let agentConfig: AgentConfig
 
@@ -30,8 +29,8 @@ describe('BasicMessageService', () => {
     agentConfig = getAgentConfig('BasicMessageServiceTest')
     wallet = new IndyWallet(agentConfig)
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    await wallet.initialize(agentConfig.walletConfig!, agentConfig.walletCredentials!)
-    storageService = new IndyStorageService(wallet)
+    await wallet.initialize(agentConfig.walletConfig!)
+    storageService = new IndyStorageService(wallet, agentConfig)
   })
 
   afterAll(async () => {

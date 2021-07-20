@@ -16,7 +16,8 @@ import type {
 import { scoped, Lifecycle } from 'tsyringe'
 
 import { AgentConfig } from '../../../agent/AgentConfig'
-import { AriesFrameworkError, IndySdkError } from '../../../error'
+import { AriesFrameworkError } from '../../../error/AriesFrameworkError'
+import { IndySdkError } from '../../../error/IndySdkError'
 import { isIndyError } from '../../../utils/indyError'
 import { IndyWallet } from '../../../wallet/IndyWallet'
 import { IndyIssuerService } from '../../indy'

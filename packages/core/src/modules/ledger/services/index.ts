@@ -1,1 +1,1 @@
-export * from './LedgerService'
+export * from './IndyLedgerService'

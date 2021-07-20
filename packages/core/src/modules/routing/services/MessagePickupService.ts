@@ -1,12 +1,13 @@
 import type { InboundMessageContext } from '../../../agent/models/InboundMessageContext'
-import type { InboundConnection, WireMessage } from '../../../types'
+import type { WireMessage } from '../../../types'
+import type { BatchPickupMessage } from '../messages'
 
 import { inject, scoped, Lifecycle } from 'tsyringe'
 
 import { createOutboundMessage } from '../../../agent/helpers'
 import { InjectionSymbols } from '../../../constants'
 import { MessageRepository } from '../../../storage/MessageRepository'
-import { BatchMessage, BatchMessageMessage, BatchPickupMessage } from '../messages'
+import { BatchMessage, BatchMessageMessage } from '../messages'
 
 @scoped(Lifecycle.ContainerScoped)
 export class MessagePickupService {
@@ -14,14 +15,6 @@ export class MessagePickupService {
 
   public constructor(@inject(InjectionSymbols.MessageRepository) messageRepository: MessageRepository) {
     this.messageRepository = messageRepository
-  }
-
-  public async batchPickup(inboundConnection: InboundConnection) {
-    const batchPickupMessage = new BatchPickupMessage({
-      batchSize: 10,
-    })
-
-    return createOutboundMessage(inboundConnection.connection, batchPickupMessage)
   }
 
   public async batch(messageContext: InboundMessageContext<BatchPickupMessage>) {

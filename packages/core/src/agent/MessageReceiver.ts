@@ -54,12 +54,12 @@ export class MessageReceiver {
     this.logger.debug(`Agent ${this.config.label} received message`)
 
     const unpackedMessage = await this.unpackMessage(inboundPackedMessage as Record<string, unknown>)
-    const senderKey = unpackedMessage.sender_verkey
+    const senderKey = unpackedMessage.senderVerkey
     let connection = undefined
-    if (senderKey && unpackedMessage.recipient_verkey) {
+    if (senderKey && unpackedMessage.recipientVerkey) {
       // TODO: only attach if theirKey is present. Otherwise a connection that may not be complete, validated or correct will
       // be attached to the message context. See #76
-      connection = (await this.connectionService.findByVerkey(unpackedMessage.recipient_verkey)) || undefined
+      connection = (await this.connectionService.findByVerkey(unpackedMessage.recipientVerkey)) || undefined
 
       // We check whether the sender key is the same as the key we have stored in the connection
       // otherwise everyone could send messages to our key and we would just accept
@@ -80,7 +80,7 @@ export class MessageReceiver {
     const messageContext = new InboundMessageContext(message, {
       connection,
       senderVerkey: senderKey,
-      recipientVerkey: unpackedMessage.recipient_verkey,
+      recipientVerkey: unpackedMessage.recipientVerkey,
     })
 
     // We want to save a session if there is a chance of returning outbound message via inbound transport.

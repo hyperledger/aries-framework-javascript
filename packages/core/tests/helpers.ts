@@ -62,8 +62,10 @@ export const publicDidSeed = process.env.TEST_AGENT_PUBLIC_DID_SEED ?? '00000000
 export function getBaseConfig(name: string, extraConfig: Partial<InitConfig> = {}) {
   const config: InitConfig = {
     label: `Agent: ${name}`,
-    walletConfig: { id: `Wallet: ${name}` },
-    walletCredentials: { key: `Key: ${name}` },
+    walletConfig: {
+      walletId: `Wallet: ${name}`,
+      walletKey: `Key: ${name}`,
+    },
     publicDidSeed,
     autoAcceptConnections: true,
     genesisPath,
@@ -72,7 +74,7 @@ export function getBaseConfig(name: string, extraConfig: Partial<InitConfig> = {
     ...extraConfig,
   }
 
-  return { config, agentDependencies: agentDependencies } as const
+  return { config, agentDependencies } as const
 }
 
 export function getAgentConfig(name: string, extraConfig: Partial<InitConfig> = {}) {

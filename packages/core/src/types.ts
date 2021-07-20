@@ -5,7 +5,11 @@ import type { ConnectionRecord } from './modules/connections'
 import type { AutoAcceptCredential } from './modules/credentials/CredentialAutoAcceptType'
 import type { AutoAcceptProof } from './modules/proofs'
 import type { MediatorPickupStrategy } from './modules/routing'
-import type { Verkey, WalletConfig, WalletCredentials } from 'indy-sdk'
+
+export interface WalletConfig {
+  walletId: string
+  walletKey: string
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type $FixMe = any
@@ -23,7 +27,6 @@ export interface InitConfig {
   publicDidSeed?: string
   mediatorRecordId?: string
   walletConfig?: WalletConfig
-  walletCredentials?: WalletCredentials
   autoAcceptConnections?: boolean
   autoAcceptProofs?: AutoAcceptProof
   autoAcceptCredentials?: AutoAcceptCredential
@@ -50,8 +53,8 @@ export interface UnpackedMessage {
 
 export interface UnpackedMessageContext {
   message: UnpackedMessage
-  sender_verkey?: Verkey
-  recipient_verkey?: Verkey
+  senderVerkey?: string
+  recipientVerkey?: string
 }
 
 export type PackedMessage = Record<string, unknown>
@@ -67,9 +70,4 @@ export interface OutboundPackage {
   responseRequested?: boolean
   endpoint?: string
   session?: TransportSession
-}
-
-export interface InboundConnection {
-  verkey: Verkey
-  connection: ConnectionRecord
 }

@@ -132,7 +132,7 @@ export class MediatorService {
 
     // TODO: this doesn't persist the routing did between agent startup
     if (this.routingKeys.length === 0) {
-      const [, verkey] = await this.wallet.createDid()
+      const { verkey } = await this.wallet.createDid()
       this.routingKeys = [verkey]
     }
 

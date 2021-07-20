@@ -3,6 +3,8 @@ import type * as Indy from 'indy-sdk'
 import { Lifecycle, scoped } from 'tsyringe'
 
 import { AgentConfig } from '../../../agent/AgentConfig'
+import { IndySdkError } from '../../../error'
+import { isIndyError } from '../../../utils/indyError'
 import { IndyWallet } from '../../../wallet/IndyWallet'
 
 @scoped(Lifecycle.ContainerScoped)
@@ -22,15 +24,19 @@ export class IndyHolderService {
     credentialDefinitions,
     revocationStates = {},
   }: CreateProofOptions) {
-    return this.indy.proverCreateProof(
-      this.indyWallet.walletHandle,
-      proofRequest,
-      requestedCredentials,
-      this.indyWallet.masterSecretId,
-      schemas,
-      credentialDefinitions,
-      revocationStates
-    )
+    try {
+      return await this.indy.proverCreateProof(
+        this.indyWallet.walletHandle,
+        proofRequest,
+        requestedCredentials,
+        this.indyWallet.masterSecretId,
+        schemas,
+        credentialDefinitions,
+        revocationStates
+      )
+    } catch (error) {
+      throw new IndySdkError(error)
+    }
   }
 
   /**
@@ -45,14 +51,18 @@ export class IndyHolderService {
     credentialId,
     revocationRegistryDefinitions,
   }: StoreCredentialOptions): Promise<Indy.CredentialId> {
-    return this.indy.proverStoreCredential(
-      this.indyWallet.walletHandle,
-      credentialId ?? null,
-      credentialRequestMetadata,
-      credential,
-      credentialDefinition,
-      revocationRegistryDefinitions ?? null
-    )
+    try {
+      return await this.indy.proverStoreCredential(
+        this.indyWallet.walletHandle,
+        credentialId ?? null,
+        credentialRequestMetadata,
+        credential,
+        credentialDefinition,
+        revocationRegistryDefinitions ?? null
+      )
+    } catch (error) {
+      throw new IndySdkError(error)
+    }
   }
 
   /**
@@ -65,7 +75,11 @@ export class IndyHolderService {
    * @todo handle record not found
    */
   public async getCredential(credentialId: Indy.CredentialId): Promise<Indy.IndyCredentialInfo> {
-    return this.indy.proverGetCredential(this.indyWallet.walletHandle, credentialId)
+    try {
+      return await this.indy.proverGetCredential(this.indyWallet.walletHandle, credentialId)
+    } catch (error) {
+      throw new IndySdkError(error)
+    }
   }
 
   /**
@@ -78,13 +92,17 @@ export class IndyHolderService {
     credentialOffer,
     credentialDefinition,
   }: CreateCredentialRequestOptions): Promise<[Indy.CredReq, Indy.CredReqMetadata]> {
-    return this.indy.proverCreateCredentialReq(
-      this.indyWallet.walletHandle,
-      holderDid,
-      credentialOffer,
-      credentialDefinition,
-      this.indyWallet.masterSecretId
-    )
+    try {
+      return await this.indy.proverCreateCredentialReq(
+        this.indyWallet.walletHandle,
+        holderDid,
+        credentialOffer,
+        credentialDefinition,
+        this.indyWallet.masterSecretId
+      )
+    } catch (error) {
+      throw new IndySdkError(error)
+    }
   }
 
   /**
@@ -105,50 +123,62 @@ export class IndyHolderService {
     limit = 256,
     extraQuery,
   }: GetCredentialForProofRequestOptions): Promise<Indy.IndyCredential[]> {
-    // Open indy credential search
-    const searchHandle = await this.indy.proverSearchCredentialsForProofReq(
-      this.indyWallet.walletHandle,
-      proofRequest,
-      extraQuery ?? null
-    )
-
     try {
-      // Make sure database cursors start at 'start' (bit ugly, but no way around in indy)
-      if (start > 0) {
-        await this.fetchCredentialsForReferent(searchHandle, attributeReferent, start)
+      // Open indy credential search
+      const searchHandle = await this.indy.proverSearchCredentialsForProofReq(
+        this.indyWallet.walletHandle,
+        proofRequest,
+        extraQuery ?? null
+      )
+
+      try {
+        // Make sure database cursors start at 'start' (bit ugly, but no way around in indy)
+        if (start > 0) {
+          await this.fetchCredentialsForReferent(searchHandle, attributeReferent, start)
+        }
+
+        // Fetch the credentials
+        const credentials = await this.fetchCredentialsForReferent(searchHandle, attributeReferent, limit)
+
+        // TODO: sort the credentials (irrevocable first)
+        return credentials
+      } finally {
+        // Always close search
+        await this.indy.proverCloseCredentialsSearchForProofReq(searchHandle)
+      }
+    } catch (error) {
+      if (isIndyError(error)) {
+        throw new IndySdkError(error)
       }
 
-      // Fetch the credentials
-      const credentials = await this.fetchCredentialsForReferent(searchHandle, attributeReferent, limit)
-
-      // TODO: sort the credentials (irrevocable first)
-      return credentials
-    } finally {
-      // Always close search
-      await this.indy.proverCloseCredentialsSearchForProofReq(searchHandle)
+      throw error
     }
   }
 
   private async fetchCredentialsForReferent(searchHandle: number, referent: string, limit?: number) {
-    let credentials: Indy.IndyCredential[] = []
+    try {
+      let credentials: Indy.IndyCredential[] = []
 
-    // Allow max of 256 per fetch operation
-    const chunk = limit ? Math.min(256, limit) : 256
+      // Allow max of 256 per fetch operation
+      const chunk = limit ? Math.min(256, limit) : 256
 
-    // Loop while limit not reached (or no limit specified)
-    while (!limit || credentials.length < limit) {
-      // Retrieve credentials
-      const credentialsJson = await this.indy.proverFetchCredentialsForProofReq(searchHandle, referent, chunk)
-      credentials = [...credentials, ...credentialsJson]
+      // Loop while limit not reached (or no limit specified)
+      while (!limit || credentials.length < limit) {
+        // Retrieve credentials
+        const credentialsJson = await this.indy.proverFetchCredentialsForProofReq(searchHandle, referent, chunk)
+        credentials = [...credentials, ...credentialsJson]
 
-      // If the number of credentials returned is less than chunk
-      // It means we reached the end of the iterator (no more credentials)
-      if (credentialsJson.length < chunk) {
-        return credentials
+        // If the number of credentials returned is less than chunk
+        // It means we reached the end of the iterator (no more credentials)
+        if (credentialsJson.length < chunk) {
+          return credentials
+        }
       }
-    }
 
-    return credentials
+      return credentials
+    } catch (error) {
+      throw new IndySdkError(error)
+    }
   }
 }
 

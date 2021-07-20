@@ -10,7 +10,7 @@ import { ConnectionService } from '../../modules/connections/services/Connection
 import { TrustPingService } from '../../modules/connections/services/TrustPingService'
 import { CredentialRepository, CredentialService } from '../../modules/credentials'
 import { CredentialsModule } from '../../modules/credentials/CredentialsModule'
-import { LedgerService } from '../../modules/ledger'
+import { IndyLedgerService } from '../../modules/ledger'
 import { LedgerModule } from '../../modules/ledger/LedgerModule'
 import { ProofRepository, ProofService } from '../../modules/proofs'
 import { ProofsModule } from '../../modules/proofs/ProofsModule'
@@ -71,7 +71,7 @@ describe('Agent', () => {
     it('wallet must be initialized if wallet config is not set before agent can be initialized', async () => {
       expect.assertions(9)
 
-      const { walletConfig, walletCredentials, ...withoutWalletConfig } = config
+      const { walletConfig, ...withoutWalletConfig } = config
       agent = new Agent(withoutWalletConfig, dependencies)
 
       const wallet = agent.injectionContainer.resolve<Wallet>(InjectionSymbols.Wallet)
@@ -84,7 +84,7 @@ describe('Agent', () => {
       expect(wallet.isInitialized).toBe(false)
 
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      await wallet.initialize(walletConfig!, walletCredentials!)
+      await wallet.initialize(walletConfig!)
       expect(agent.isInitialized).toBe(false)
       expect(wallet.isInitialized).toBe(true)
 
@@ -124,7 +124,7 @@ describe('Agent', () => {
       expect(container.resolve(MediationRecipientService)).toBeInstanceOf(MediationRecipientService)
 
       expect(container.resolve(LedgerModule)).toBeInstanceOf(LedgerModule)
-      expect(container.resolve(LedgerService)).toBeInstanceOf(LedgerService)
+      expect(container.resolve(IndyLedgerService)).toBeInstanceOf(IndyLedgerService)
 
       // Symbols, interface based
       expect(container.resolve(InjectionSymbols.Wallet)).toBeInstanceOf(IndyWallet)
@@ -168,7 +168,7 @@ describe('Agent', () => {
       expect(container.resolve(MediationRecipientService)).toBe(container.resolve(MediationRecipientService))
 
       expect(container.resolve(LedgerModule)).toBe(container.resolve(LedgerModule))
-      expect(container.resolve(LedgerService)).toBe(container.resolve(LedgerService))
+      expect(container.resolve(IndyLedgerService)).toBe(container.resolve(IndyLedgerService))
 
       // Symbols, interface based
       expect(container.resolve(InjectionSymbols.Wallet)).toBe(container.resolve(InjectionSymbols.Wallet))
